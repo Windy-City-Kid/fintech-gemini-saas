@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Building2, ArrowRight } from 'lucide-react';
+import { CheckCircle, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ComplianceHeader } from '@/components/layout/ComplianceHeader';
+import { PlaidLinkButton } from '@/components/dashboard/PlaidLinkButton';
 
 export default function Success() {
   const [searchParams] = useSearchParams();
@@ -19,10 +20,9 @@ export default function Success() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleConnectBank = () => {
-    // Placeholder for Plaid Link - will be implemented next
-    // For now, redirect to dashboard with a flag
-    navigate('/?connect=plaid');
+  const handleSuccess = () => {
+    // Navigate to dashboard after successful bank connection
+    navigate('/');
   };
 
   const handleSkip = () => {
@@ -68,11 +68,11 @@ export default function Success() {
                 </p>
 
                 <div className="flex flex-col gap-3">
-                  <Button onClick={handleConnectBank} size="lg" className="w-full gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Connect Bank Account
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
+                  <PlaidLinkButton 
+                    onSuccess={handleSuccess} 
+                    size="lg" 
+                    className="w-full"
+                  />
                   <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
                     Skip for now
                   </Button>
