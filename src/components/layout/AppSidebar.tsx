@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut, Shield, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -13,6 +14,7 @@ const navItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { isPro, isLoading, startCheckout } = useSubscription();
 
   return (
     <aside className="fixed left-0 top-8 bottom-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
@@ -49,6 +51,24 @@ export function AppSidebar() {
         })}
       </nav>
 
+      {/* Upgrade banner for free users */}
+      {!isLoading && !isPro && (
+        <div className="px-4 pb-4">
+          <button
+            onClick={startCheckout}
+            className="w-full p-4 rounded-lg bg-gradient-to-r from-primary/20 to-chart-2/20 border border-primary/30 hover:border-primary/50 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-primary">Upgrade to Pro</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Unlock Plaid syncing & simulations
+            </p>
+          </button>
+        </div>
+      )}
+
       {/* User section */}
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-sidebar-accent/50">
@@ -61,7 +81,12 @@ export function AppSidebar() {
             <p className="text-sm font-medium text-foreground truncate">
               {user?.email}
             </p>
-            <p className="text-xs text-muted-foreground">Free Plan</p>
+            <p className={cn(
+              "text-xs",
+              isPro ? "text-primary" : "text-muted-foreground"
+            )}>
+              {isPro ? 'Pro Plan' : 'Free Plan'}
+            </p>
           </div>
         </div>
         <button

@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import NetWorth from "./pages/NetWorth";
 import Scenarios from "./pages/Scenarios";
 import Settings from "./pages/Settings";
+import Success from "./pages/Success";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,11 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/success" element={
+              <ProtectedRoute>
+                <Success />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
