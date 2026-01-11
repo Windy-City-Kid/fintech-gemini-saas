@@ -5,6 +5,8 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { AccountsList } from '@/components/dashboard/AccountsList';
 import { NetWorthChart } from '@/components/dashboard/NetWorthChart';
 import { AllocationChart } from '@/components/dashboard/AllocationChart';
+import { PlaidSyncOverlay } from '@/components/dashboard/PlaidSyncOverlay';
+import { usePlaidLink } from '@/hooks/usePlaidLink';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -21,6 +23,12 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Initialize Plaid hook to handle OAuth redirects
+  const { isSyncing, isResuming } = usePlaidLink(() => {
+    // Refresh accounts after successful Plaid connection
+    fetchAccounts();
+  });
 
   const fetchAccounts = async () => {
     if (!user) return;
@@ -61,6 +69,12 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
+      {/* Plaid Sync Overlay */}
+      <PlaidSyncOverlay 
+        isVisible={isSyncing || isResuming} 
+        message={isResuming ? 'Resuming Bank Connection...' : 'Syncing Bank Data...'}
+      />
+      
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
         <p className="text-muted-foreground">Overview of your financial health</p>

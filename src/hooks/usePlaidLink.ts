@@ -8,6 +8,8 @@ interface UsePlaidLinkReturn {
   open: () => void;
   ready: boolean;
   isLoading: boolean;
+  isSyncing: boolean;
+  isResuming: boolean;
   error: string | null;
   fetchLinkToken: () => Promise<void>;
 }
@@ -19,6 +21,8 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
   const { session } = useAuth();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receivedRedirectUri, setReceivedRedirectUri] = useState<string | null>(null);
 
@@ -29,14 +33,33 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
     
     if (oauthStateId) {
       console.log('Detected OAuth redirect, resuming Plaid Link...');
+      setIsResuming(true);
+      
       // Store the full redirect URI for Plaid
       setReceivedRedirectUri(window.location.href);
       
       // Retrieve stored link token
       const storedState = localStorage.getItem(PLAID_OAUTH_STATE_KEY);
       if (storedState) {
-        const { linkToken: storedToken } = JSON.parse(storedState);
-        setLinkToken(storedToken);
+        try {
+          const { linkToken: storedToken, timestamp } = JSON.parse(storedState);
+          // Check if token is less than 30 minutes old
+          if (Date.now() - timestamp < 30 * 60 * 1000) {
+            setLinkToken(storedToken);
+          } else {
+            console.warn('Stored link token expired');
+            localStorage.removeItem(PLAID_OAUTH_STATE_KEY);
+            setIsResuming(false);
+            toast.error('Session expired', { description: 'Please try connecting your bank again.' });
+          }
+        } catch (e) {
+          console.error('Failed to parse stored OAuth state:', e);
+          setIsResuming(false);
+        }
+      } else {
+        console.warn('No stored link token found for OAuth resume');
+        setIsResuming(false);
+        toast.error('Session not found', { description: 'Please try connecting your bank again.' });
       }
       
       // Clean up URL params without page reload
@@ -87,7 +110,9 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
   const handleSuccess: PlaidLinkOnSuccess = useCallback(async (publicToken, metadata) => {
     if (!session) return;
 
-    setIsLoading(true);
+    setIsSyncing(true);
+    setIsResuming(false);
+    
     try {
       console.log('Plaid Link success, exchanging token...');
       
@@ -126,7 +151,7 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
       console.error('Error exchanging token:', err);
       toast.error('Failed to connect accounts', { description: message });
     } finally {
-      setIsLoading(false);
+      setIsSyncing(false);
     }
   }, [session, onSuccess]);
 
@@ -139,6 +164,7 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
       }
       setLinkToken(null);
       setReceivedRedirectUri(null);
+      setIsResuming(false);
       localStorage.removeItem(PLAID_OAUTH_STATE_KEY);
     },
     // Include receivedRedirectUri for OAuth flow resumption
@@ -163,6 +189,8 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
     open: openPlaid,
     ready: ready && !!linkToken,
     isLoading,
+    isSyncing,
+    isResuming,
     error,
     fetchLinkToken,
   };
