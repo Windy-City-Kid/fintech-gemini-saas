@@ -70,7 +70,7 @@ serve(async (req) => {
         products: ["auth", "transactions", "investments"],
         country_codes: ["US"],
         language: "en",
-        redirect_uri: null, // Not using OAuth redirect
+        redirect_uri: "https://joyful-savings-dash.lovable.app",
       }),
     });
 
