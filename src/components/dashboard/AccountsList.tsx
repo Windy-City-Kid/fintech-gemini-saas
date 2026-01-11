@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Building2, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Building2, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AddAccountDialog } from './AddAccountDialog';
+import { PlaidLinkButton } from './PlaidLinkButton';
 import { cn } from '@/lib/utils';
 
 interface Account {
@@ -41,21 +42,34 @@ export function AccountsList({ accounts, onRefresh }: AccountsListProps) {
     }).format(amount);
   };
 
+  const manualAccounts = accounts.filter(a => a.is_manual_entry);
+  const linkedAccounts = accounts.filter(a => !a.is_manual_entry);
+
   return (
     <div className="stat-card">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold">Accounts</h3>
-          <p className="text-sm text-muted-foreground">Manual entry accounts</p>
+          <p className="text-sm text-muted-foreground">
+            {linkedAccounts.length > 0 ? `${linkedAccounts.length} linked, ${manualAccounts.length} manual` : 'Manual entry accounts'}
+          </p>
         </div>
-        <Button 
-          onClick={() => setIsAddDialogOpen(true)}
-          size="sm"
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Add Account
-        </Button>
+        <div className="flex items-center gap-2">
+          <PlaidLinkButton 
+            onSuccess={onRefresh} 
+            size="sm" 
+            variant="outline"
+          />
+          <Button 
+            onClick={() => setIsAddDialogOpen(true)}
+            size="sm"
+            variant="outline"
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Manual
+          </Button>
+        </div>
       </div>
 
       {accounts.length === 0 ? (

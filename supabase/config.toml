@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.check-subscription]
 verify_jwt = false
+
+[functions.create-link-token]
+verify_jwt = false
+
+[functions.exchange-public-token]
+verify_jwt = false
