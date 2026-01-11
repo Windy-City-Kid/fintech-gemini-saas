@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { usePlaidLink as usePlaidLinkSDK, PlaidLinkOptions, PlaidLinkOnSuccess } from 'react-plaid-link';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,11 +12,38 @@ interface UsePlaidLinkReturn {
   fetchLinkToken: () => Promise<void>;
 }
 
+// Storage key for OAuth state
+const PLAID_OAUTH_STATE_KEY = 'plaid_oauth_state';
+
 export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
   const { session } = useAuth();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [receivedRedirectUri, setReceivedRedirectUri] = useState<string | null>(null);
+
+  // Check for OAuth redirect on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthStateId = params.get('oauth_state_id');
+    
+    if (oauthStateId) {
+      console.log('Detected OAuth redirect, resuming Plaid Link...');
+      // Store the full redirect URI for Plaid
+      setReceivedRedirectUri(window.location.href);
+      
+      // Retrieve stored link token
+      const storedState = localStorage.getItem(PLAID_OAUTH_STATE_KEY);
+      if (storedState) {
+        const { linkToken: storedToken } = JSON.parse(storedState);
+        setLinkToken(storedToken);
+      }
+      
+      // Clean up URL params without page reload
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
 
   const fetchLinkToken = useCallback(async () => {
     if (!session) {
@@ -39,6 +66,12 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
       if (data.error) {
         throw new Error(data.error);
       }
+
+      // Store link token for OAuth redirect resume
+      localStorage.setItem(PLAID_OAUTH_STATE_KEY, JSON.stringify({
+        linkToken: data.link_token,
+        timestamp: Date.now(),
+      }));
 
       setLinkToken(data.link_token);
     } catch (err: unknown) {
@@ -81,8 +114,10 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
         description: `Successfully linked ${data.accounts_linked} account(s)` 
       });
       
-      // Clear link token so it can be re-fetched if needed
+      // Clear link token and OAuth state
       setLinkToken(null);
+      setReceivedRedirectUri(null);
+      localStorage.removeItem(PLAID_OAUTH_STATE_KEY);
       
       // Call success callback
       onSuccess?.();
@@ -103,10 +138,22 @@ export function usePlaidLink(onSuccess?: () => void): UsePlaidLinkReturn {
         console.log('Plaid Link exit with error:', err);
       }
       setLinkToken(null);
+      setReceivedRedirectUri(null);
+      localStorage.removeItem(PLAID_OAUTH_STATE_KEY);
     },
+    // Include receivedRedirectUri for OAuth flow resumption
+    ...(receivedRedirectUri && { receivedRedirectUri }),
   };
 
   const { open, ready } = usePlaidLinkSDK(config);
+  
+  // Auto-open Plaid Link when resuming from OAuth redirect
+  useEffect(() => {
+    if (receivedRedirectUri && linkToken && ready) {
+      console.log('Auto-opening Plaid Link to resume OAuth flow');
+      open();
+    }
+  }, [receivedRedirectUri, linkToken, ready, open]);
 
   const openPlaid = useCallback(() => {
     open();
