@@ -1,0 +1,225 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Shield, Mail, Lock, User, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+
+const authSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  fullName: z.string().optional(),
+});
+
+type AuthFormData = z.infer<typeof authSchema>;
+
+export default function Auth() {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { signIn, signUp, user } = useAuth();
+  const navigate = useNavigate();
+
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<AuthFormData>({
+    resolver: zodResolver(authSchema),
+  });
+
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  const onSubmit = async (data: AuthFormData) => {
+    setIsLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(data.email, data.password, data.fullName);
+        if (error) {
+          if (error.message.includes('already registered')) {
+            toast.error('Account already exists', { 
+              description: 'Please sign in instead or use a different email.' 
+            });
+          } else {
+            throw error;
+          }
+        } else {
+          toast.success('Account created!', { 
+            description: 'Please check your email to verify your account.' 
+          });
+          reset();
+        }
+      } else {
+        const { error } = await signIn(data.email, data.password);
+        if (error) {
+          if (error.message.includes('Invalid login')) {
+            toast.error('Invalid credentials', { 
+              description: 'Please check your email and password.' 
+            });
+          } else {
+            throw error;
+          }
+        }
+      }
+    } catch (error: any) {
+      toast.error('Authentication failed', { description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Left Panel - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'radial-gradient(circle at 30% 20%, hsl(152 76% 45% / 0.15) 0%, transparent 50%)',
+        }} />
+        
+        <div className="relative z-10 flex flex-col justify-center p-12">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="h-12 w-12 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Shield className="h-6 w-6 text-primary" />
+            </div>
+            <span className="text-2xl font-semibold">WealthPlan Pro</span>
+          </div>
+          
+          <h1 className="text-4xl font-bold leading-tight mb-4">
+            Take Control of Your
+            <br />
+            <span className="text-primary">Financial Future</span>
+          </h1>
+          
+          <p className="text-muted-foreground text-lg max-w-md mb-8">
+            Comprehensive retirement planning with real-time portfolio tracking, 
+            scenario modeling, and secure data management.
+          </p>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 text-sm">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <KeyRound className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-muted-foreground">Bank-level security & encryption</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Shield className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-muted-foreground">MFA-ready authentication</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Auth Form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden flex items-center gap-3 mb-8">
+            <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Shield className="h-5 w-5 text-primary" />
+            </div>
+            <span className="text-xl font-semibold">WealthPlan Pro</span>
+          </div>
+
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-2">
+              {isSignUp ? 'Create your account' : 'Welcome back'}
+            </h2>
+            <p className="text-muted-foreground">
+              {isSignUp 
+                ? 'Start planning your financial future today' 
+                : 'Sign in to access your dashboard'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="fullName"
+                    placeholder="John Doe"
+                    className="pl-10"
+                    {...register('fullName')}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className="pl-10"
+                  {...register('email')}
+                />
+              </div>
+              {errors.email && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="pl-10"
+                  {...register('password')}
+                />
+              </div>
+              {errors.password && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+              {isLoading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isSignUp 
+                ? 'Already have an account? Sign in' 
+                : "Don't have an account? Sign up"}
+            </button>
+          </div>
+
+          <div className="mt-8 p-4 rounded-lg bg-muted/30 border border-border">
+            <p className="text-xs text-muted-foreground text-center">
+              🔒 MFA Placeholder: Multi-factor authentication will be enabled in a future update 
+              for enhanced security.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
