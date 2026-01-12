@@ -78,7 +78,7 @@ serve(async (req) => {
       customer: customerId,
       line_items: [
         {
-          price: "price_1SoE1yPJ4Yc7uJhKflCdMWbL", // Pro tier price ID
+          price: "price_1Sop7lPJ4Yc7uJhKPmpk2ZqB", // Pro tier monthly subscription
           quantity: 1,
         },
       ],
