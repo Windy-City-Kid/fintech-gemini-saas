@@ -24,6 +24,20 @@ interface RateAssumptions {
   inflation?: RateRange;
   stockReturns?: RateRange;
   bondReturns?: RateRange;
+  ssCola?: RateRange; // Social Security COLA (CPI-W based)
+}
+
+interface SocialSecurityParams {
+  primaryPIA: number;           // Primary Insurance Amount at FRA (monthly)
+  primaryClaimingAge: number;   // Age to start benefits (62-70)
+  primaryFRA: number;           // Full Retirement Age (66-67)
+  spousePIA?: number;           // Spouse PIA (0 if single)
+  spouseClaimingAge?: number;   // Spouse claiming age
+  spouseFRA?: number;           // Spouse FRA
+  spouseCurrentAge?: number;    // Spouse current age
+  isMarried: boolean;
+  primaryLifeExpectancy: number;
+  spouseLifeExpectancy?: number;
 }
 
 interface SimulationParams {
@@ -34,6 +48,7 @@ interface SimulationParams {
   monthlyRetirementSpending: number;
   allocation: SimpleAllocation;
   rateAssumptions?: RateAssumptions;
+  socialSecurity?: SocialSecurityParams;
 }
 
 interface GuardrailEvent {
@@ -61,6 +76,7 @@ interface SimulationResult {
     high: number;
   };
   executionTimeMs: number;
+  ssBenefitsByAge?: number[]; // Social Security benefits by simulation year
 }
 
 // ============= PARAMETERS =============
@@ -258,6 +274,91 @@ function getCorrelatedReturns(
   };
 }
 
+// ============= SOCIAL SECURITY CALCULATIONS =============
+
+/**
+ * Calculate SS benefit adjustment factor based on claiming age vs FRA
+ * Before FRA: Reduced by 5/9 of 1% per month for first 36 months, then 5/12 of 1%
+ * After FRA: Increased by 8% per year (delayed retirement credits)
+ */
+function calculateSSAdjustment(claimingAge: number, fra: number): number {
+  const monthsDiff = (claimingAge - fra) * 12;
+  
+  if (monthsDiff >= 0) {
+    return 1 + (monthsDiff / 12) * 0.08;
+  } else {
+    const monthsEarly = Math.abs(monthsDiff);
+    if (monthsEarly <= 36) {
+      return 1 - (monthsEarly * 5 / 9 / 100);
+    } else {
+      const first36Reduction = 36 * 5 / 9 / 100;
+      const additionalMonths = monthsEarly - 36;
+      const additionalReduction = additionalMonths * 5 / 12 / 100;
+      return 1 - first36Reduction - additionalReduction;
+    }
+  }
+}
+
+/**
+ * Calculate Social Security income for a given year in simulation
+ * Includes COLA compounding and survivor benefit logic
+ */
+function calculateSSIncome(
+  params: SocialSecurityParams,
+  currentAge: number,
+  simulationYear: number,
+  colaRate: number,
+  primaryDead: boolean,
+  spouseDead: boolean
+): number {
+  const age = currentAge + simulationYear;
+  const spouseAge = params.spouseCurrentAge ? params.spouseCurrentAge + simulationYear : 0;
+  
+  // COLA compounds from age 62 (or current age if older) on the PIA
+  const yearsOfCOLA = Math.max(0, simulationYear);
+  
+  // Primary benefit calculation
+  let primaryBenefit = 0;
+  if (!primaryDead && age >= params.primaryClaimingAge) {
+    const adjustment = calculateSSAdjustment(params.primaryClaimingAge, params.primaryFRA);
+    const yearsSinceClaiming = age - params.primaryClaimingAge;
+    // COLA compounds on PIA before claiming, then continues after
+    const colaMultiplier = Math.pow(1 + colaRate, yearsOfCOLA);
+    primaryBenefit = params.primaryPIA * adjustment * colaMultiplier * 12;
+  }
+  
+  // Spouse benefit calculation
+  let spouseBenefit = 0;
+  if (params.isMarried && params.spousePIA && params.spouseClaimingAge && params.spouseFRA) {
+    if (!spouseDead && spouseAge >= params.spouseClaimingAge) {
+      const adjustment = calculateSSAdjustment(params.spouseClaimingAge, params.spouseFRA);
+      const colaMultiplier = Math.pow(1 + colaRate, yearsOfCOLA);
+      spouseBenefit = params.spousePIA * adjustment * colaMultiplier * 12;
+    }
+  }
+  
+  // Survivor benefit logic: surviving spouse gets higher of the two benefits
+  if (params.isMarried) {
+    if (primaryDead && !spouseDead) {
+      // Primary died - spouse gets max of their benefit or primary's
+      const primaryAdjustment = calculateSSAdjustment(params.primaryClaimingAge, params.primaryFRA);
+      const colaMultiplier = Math.pow(1 + colaRate, yearsOfCOLA);
+      const primaryWouldHaveBeen = params.primaryPIA * primaryAdjustment * colaMultiplier * 12;
+      return Math.max(spouseBenefit, primaryWouldHaveBeen);
+    } else if (spouseDead && !primaryDead) {
+      // Spouse died - primary gets max of their benefit or spouse's
+      const spouseAdjustment = params.spouseClaimingAge && params.spouseFRA
+        ? calculateSSAdjustment(params.spouseClaimingAge, params.spouseFRA)
+        : 1;
+      const colaMultiplier = Math.pow(1 + colaRate, yearsOfCOLA);
+      const spouseWouldHaveBeen = (params.spousePIA || 0) * spouseAdjustment * colaMultiplier * 12;
+      return Math.max(primaryBenefit, spouseWouldHaveBeen);
+    }
+  }
+  
+  return primaryBenefit + spouseBenefit;
+}
+
 // ============= MAIN SIMULATION =============
 
 function runSimulation(params: SimulationParams, iterations: number): SimulationResult {
@@ -279,6 +380,7 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   const allBalances = new Float64Array(iterations * (yearsToSimulate + 1));
   const guardrailByYear = new Uint16Array(retirementYears + 1);
   const firstYearInflations = new Float64Array(iterations);
+  const ssBenefitTotals = new Float64Array(yearsToSimulate + 1);
   
   // Normalize allocation
   const total = params.allocation.stocks + params.allocation.bonds + params.allocation.cash;
@@ -293,6 +395,11 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   const GUARDRAIL_THRESHOLD = 0.8;
   const RECOVERY_THRESHOLD = 0.9;
   
+  // Get COLA rate from assumptions or use default CPI-W historical average
+  const colaRate = params.rateAssumptions?.ssCola
+    ? (params.rateAssumptions.ssCola.optimistic + params.rateAssumptions.ssCola.pessimistic) / 2
+    : 0.0254; // 2.54% historical CPI-W
+  
   for (let iter = 0; iter < iterations; iter++) {
     let balance = params.currentSavings;
     allBalances[iter * (yearsToSimulate + 1)] = balance;
@@ -301,10 +408,29 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     let iterGuardrailCount = 0;
     let retirementStartBalance = 0;
     
+    // Simulate death for survivor benefit (simplified: use life expectancy)
+    // For each trial, randomize death year around life expectancy
+    let primaryDeathYear = Infinity;
+    let spouseDeathYear = Infinity;
+    
+    if (params.socialSecurity) {
+      const primaryLifeExpectancy = params.socialSecurity.primaryLifeExpectancy;
+      // Add randomness: +/- 5 years uniform distribution
+      primaryDeathYear = primaryLifeExpectancy - params.currentAge + Math.floor((Math.random() - 0.5) * 10);
+      
+      if (params.socialSecurity.isMarried && params.socialSecurity.spouseLifeExpectancy && params.socialSecurity.spouseCurrentAge) {
+        spouseDeathYear = params.socialSecurity.spouseLifeExpectancy - params.socialSecurity.spouseCurrentAge + Math.floor((Math.random() - 0.5) * 10);
+      }
+    }
+    
     for (let year = 0; year < yearsToSimulate; year++) {
       const age = params.currentAge + year;
       const isRetired = age >= params.retirementAge;
       const yearInRetirement = isRetired ? age - params.retirementAge : -1;
+      
+      // Check if primary/spouse are alive this year
+      const primaryDead = year >= primaryDeathYear;
+      const spouseDead = year >= spouseDeathYear;
       
       // Get LHS samples
       const offset = iter * 4;
@@ -330,6 +456,20 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
       // Portfolio return based on allocation
       const portfolioReturn = sw * returns.stockReturn + bw * returns.bondReturn + cw * returns.cashReturn;
       
+      // Calculate Social Security income (with COLA compounding)
+      let ssIncome = 0;
+      if (params.socialSecurity && isRetired) {
+        ssIncome = calculateSSIncome(
+          params.socialSecurity,
+          params.currentAge,
+          year,
+          colaRate,
+          primaryDead,
+          spouseDead
+        );
+        ssBenefitTotals[year + 1] += ssIncome;
+      }
+      
       if (!isRetired) {
         balance = balance * (1 + portfolioReturn) + params.annualContribution;
       } else {
@@ -337,9 +477,12 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
           retirementStartBalance = balance;
         }
         
-        // Inflation-adjusted spending
+        // Inflation-adjusted spending (net of SS income)
         let annualSpending = params.monthlyRetirementSpending * 12 * 
           Math.pow(1 + ASSET_PARAMS.inflation.mean, yearInRetirement);
+        
+        // Subtract Social Security income from required portfolio withdrawals
+        const netWithdrawal = Math.max(0, annualSpending - ssIncome);
         
         // Guardrail logic
         if (balance < retirementStartBalance * GUARDRAIL_THRESHOLD && !guardrailActive) {
@@ -351,13 +494,17 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
         }
         
         if (guardrailActive) {
-          annualSpending *= 0.9; // 10% reduction
+          // 10% reduction in spending (but SS income is fixed)
+          const reducedSpending = annualSpending * 0.9;
+          const reducedNetWithdrawal = Math.max(0, reducedSpending - ssIncome);
+          balance = balance * (1 + portfolioReturn) - reducedNetWithdrawal;
+          
           if (balance >= retirementStartBalance * RECOVERY_THRESHOLD) {
             guardrailActive = false;
           }
+        } else {
+          balance = balance * (1 + portfolioReturn) - netWithdrawal;
         }
-        
-        balance = balance * (1 + portfolioReturn) - annualSpending;
       }
       
       allBalances[iter * (yearsToSimulate + 1) + year + 1] = Math.max(0, balance);
@@ -394,6 +541,9 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     percentiles.p95[year] = sortBuffer[Math.floor(iterations * 0.95)];
   }
   
+  // Average SS benefits by year
+  const ssBenefitsByAge = Array.from(ssBenefitTotals).map(total => total / iterations);
+  
   // Guardrail events
   const guardrailEvents: GuardrailEvent[] = [];
   for (let y = 1; y <= retirementYears; y++) {
@@ -422,6 +572,7 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
       high: firstYearInflations[Math.floor(iterations * 0.9)] * 100,
     },
     executionTimeMs: performance.now() - startTime,
+    ssBenefitsByAge,
   };
 }
 
