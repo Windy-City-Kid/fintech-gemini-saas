@@ -74,12 +74,12 @@ export function useSubscription() {
     checkSubscription();
   }, [user, session]);
 
-  const startCheckout = useCallback(async () => {
+  const startCheckout = useCallback(async (plan: 'monthly' | 'annual' = 'monthly') => {
     if (!session) return;
 
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { returnUrl: window.location.origin },
+        body: { returnUrl: window.location.origin, plan },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },

@@ -68,27 +68,31 @@ serve(async (req) => {
       console.log("Created new Stripe customer:", customerId);
     }
 
-    // Parse request body for return URL
-    const { returnUrl } = await req.json();
+    // Parse request body for return URL and plan type
+    const { returnUrl, plan = "monthly" } = await req.json();
     const successUrl = `${returnUrl || "https://lovable.dev"}/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${returnUrl || "https://lovable.dev"}/`;
 
+    // Determine lookup key based on plan
+    const lookupKey = plan === "annual" ? "retire_pro_annually" : "retire_pro_monthly";
+    console.log("Looking up price with key:", lookupKey);
+
     // Look up price by lookup_key (server-side only for security)
     const prices = await stripe.prices.list({
-      lookup_keys: ["retire_pro_monthly"],
+      lookup_keys: [lookupKey],
       active: true,
       limit: 1,
     });
 
     if (prices.data.length === 0) {
-      console.error("No price found with lookup key 'retire_pro_monthly'");
+      console.error(`No price found with lookup key '${lookupKey}'`);
       throw new Error("Subscription price not configured");
     }
 
     const priceId = prices.data[0].id;
     console.log("Found price via lookup key:", priceId);
 
-    // Create checkout session with Pro tier price
+    // Create checkout session with subscription mode
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
