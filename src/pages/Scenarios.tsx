@@ -23,6 +23,7 @@ import { ExportReportButton } from '@/components/scenarios/ExportReportButton';
 import { MoneyFlowsTile } from '@/components/scenarios/MoneyFlowsTile';
 import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
+import { useProperties } from '@/hooks/useProperties';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_COLORS } from '@/lib/correlationMatrix';
 import { AssetAllocation } from '@/lib/assetClassification';
 
@@ -58,6 +59,9 @@ export default function Scenarios() {
   
   // Use the portfolio data bridge hook
   const portfolio = usePortfolioData();
+  
+  // Fetch properties for real estate integration
+  const { primaryResidence, totalEquity } = useProperties();
   
   // Fetch user rate assumptions
   const { assumptions: rateAssumptions } = useRateAssumptions();
@@ -200,11 +204,24 @@ export default function Scenarios() {
       monthlyRetirementSpending: formValues.monthly_retirement_spending,
       allocation: simAllocation,
       rateAssumptions: Object.keys(userRates).length > 0 ? userRates : undefined,
+      // Include property data for mortgage amortization and home equity
+      property: primaryResidence ? {
+        mortgageBalance: primaryResidence.mortgage_balance || 0,
+        mortgageInterestRate: primaryResidence.mortgage_interest_rate || 0,
+        mortgageMonthlyPayment: primaryResidence.mortgage_monthly_payment || 0,
+        estimatedValue: primaryResidence.estimated_value || 0,
+        relocationAge: primaryResidence.relocation_age || undefined,
+        relocationSalePrice: primaryResidence.relocation_sale_price || undefined,
+        relocationNewPurchasePrice: primaryResidence.relocation_new_purchase_price || undefined,
+        relocationNewMortgageAmount: primaryResidence.relocation_new_mortgage_amount || undefined,
+        relocationNewInterestRate: primaryResidence.relocation_new_interest_rate || undefined,
+        relocationNewTermMonths: primaryResidence.relocation_new_term_months || undefined,
+      } : undefined,
     };
     
     // Run in Web Worker to keep UI responsive
     runWorkerSimulation(params, 5000);
-  }, [formValues, currentSavings, allocation, rateAssumptions, runWorkerSimulation]);
+  }, [formValues, currentSavings, allocation, rateAssumptions, primaryResidence, runWorkerSimulation]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
