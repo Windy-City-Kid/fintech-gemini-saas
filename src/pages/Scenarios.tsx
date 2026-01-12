@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { runMonteCarloSimulation, SimulationResult, SimulationParams } from '@/hooks/useMonteCarloSimulation';
+import { runMonteCarloSimulation, SimulationResult, SimulationParams, convertTo3AssetAllocation } from '@/hooks/useMonteCarloSimulation';
 import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
 import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
@@ -136,15 +136,16 @@ export default function Scenarios() {
     
     setTimeout(() => {
       try {
+        // Convert 5-asset allocation to 3-asset for simulation
+        const simAllocation = convertTo3AssetAllocation(allocation);
+        
         const params: SimulationParams = {
           currentAge: formValues.current_age,
           retirementAge: formValues.retirement_age,
           currentSavings,
           annualContribution: formValues.annual_contribution,
           monthlyRetirementSpending: formValues.monthly_retirement_spending,
-          expectedReturn: formValues.expected_return,
-          inflationRate: formValues.inflation_rate,
-          allocation,
+          allocation: simAllocation,
         };
         
         const result = runMonteCarloSimulation(params, 5000);
