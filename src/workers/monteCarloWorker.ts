@@ -120,7 +120,55 @@ interface SimulationResult {
   moneyFlowSummary?: MoneyFlowSummary;
 }
 
-// ============= MEDICARE & IRMAA CONSTANTS =============
+// ============= 2026 IRS CONTRIBUTION LIMITS =============
+
+const IRS_LIMITS_2026 = {
+  '401k': { base: 24000, catchUp: 7500, superCatchUp: 11250, catchUpAge: 50, superCatchUpAges: [60, 63] },
+  '403b': { base: 24000, catchUp: 7500, superCatchUp: 11250, catchUpAge: 50, superCatchUpAges: [60, 63] },
+  IRA: { base: 7500, catchUp: 1000, catchUpAge: 50 },
+  Roth: { base: 7500, catchUp: 1000, catchUpAge: 50 },
+  HSA: { individual: 4400, family: 8750, catchUp: 1000, catchUpAge: 55 },
+  rothCatchUpIncomeThreshold: 150000,
+};
+
+function getIRSContributionLimit(accountType: string, age: number): number {
+  const normalized = accountType.toLowerCase();
+  
+  if (normalized.includes('401') || normalized.includes('403')) {
+    const limits = IRS_LIMITS_2026['401k'];
+    let max = limits.base;
+    
+    // Super Catch-Up for ages 60-63
+    if (age >= 60 && age <= 63) {
+      max += limits.superCatchUp;
+    } else if (age >= limits.catchUpAge) {
+      max += limits.catchUp;
+    }
+    return max;
+  }
+  
+  if (normalized.includes('ira') || normalized.includes('roth')) {
+    const limits = IRS_LIMITS_2026.IRA;
+    let max = limits.base;
+    if (age >= limits.catchUpAge) {
+      max += limits.catchUp;
+    }
+    return max;
+  }
+  
+  if (normalized.includes('hsa')) {
+    const limits = IRS_LIMITS_2026.HSA;
+    let max = limits.family; // Assume family for simulation
+    if (age >= limits.catchUpAge) {
+      max += limits.catchUp;
+    }
+    return max;
+  }
+  
+  // Brokerage/Taxable has no limit
+  return Infinity;
+}
+
 
 const MEDICARE_PART_B_STANDARD = 202.90;
 const MEDICARE_PART_D_BASE = 35.00;
@@ -642,16 +690,27 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
         // Accumulation phase - calculate contributions from money flows
         let yearContributions = params.annualContribution;
         
-        // Add income-linked contributions (prioritized over expenses)
+        // Add contributions from money flows, enforcing IRS limits per account type
         if (params.moneyFlows?.contributions) {
+          // Track contributions by account type for limit enforcement
+          const contributionsByType: Record<string, number> = {};
+          
           for (const contrib of params.moneyFlows.contributions) {
             if (age >= contrib.startAge && age <= contrib.endAge) {
-              if (contrib.isIncomeLinked) {
-                // Income-linked contributions are prioritized first
-                yearContributions += contrib.annualAmount;
-              } else {
-                yearContributions += contrib.annualAmount;
-              }
+              const accountType = contrib.accountType;
+              const irsLimit = getIRSContributionLimit(accountType, age);
+              
+              // Get current total for this account type
+              const currentTotal = contributionsByType[accountType] || 0;
+              
+              // Cap at IRS limit
+              const allowedAmount = Math.min(
+                contrib.annualAmount,
+                Math.max(0, irsLimit - currentTotal)
+              );
+              
+              contributionsByType[accountType] = currentTotal + allowedAmount;
+              yearContributions += allowedAmount;
             }
           }
         }
