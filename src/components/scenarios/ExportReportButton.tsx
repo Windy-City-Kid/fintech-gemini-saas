@@ -8,16 +8,46 @@ import { FileDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { downloadRetirementReport, ReportData } from '@/lib/pdfReportGenerator';
-import { SimulationResult, SimpleAllocation } from '@/hooks/useMonteCarloSimulation';
+
+interface AllocationData {
+  stocks: number;
+  bonds: number;
+  cash: number;
+}
+
+interface SimulationData {
+  percentiles: {
+    p5: number[];
+    p25: number[];
+    p50: number[];
+    p75: number[];
+    p95: number[];
+  };
+  ages: number[];
+  successRate: number;
+  medianEndBalance: number;
+  guardrailActivations: number;
+  guardrailEvents: Array<{
+    yearInRetirement: number;
+    activations: number;
+    percentage: number;
+  }>;
+  inflationScenarios: {
+    low: number;
+    median: number;
+    high: number;
+  };
+  executionTimeMs: number;
+}
 
 interface ExportReportButtonProps {
-  simulationResult: SimulationResult | null;
+  simulationResult: SimulationData | null;
   userName: string;
   currentAge: number;
   retirementAge: number;
   currentSavings: number;
   monthlySpending: number;
-  allocation: SimpleAllocation;
+  allocation: AllocationData;
   fanChartElementId?: string;
   resilienceMeterElementId?: string;
   disabled?: boolean;

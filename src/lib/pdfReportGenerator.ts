@@ -5,12 +5,41 @@
 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { SimulationResult } from '@/hooks/useMonteCarloSimulation';
+
+// Inline types to avoid circular imports
+interface PercentileData {
+  p5: number[];
+  p25: number[];
+  p50: number[];
+  p75: number[];
+  p95: number[];
+}
+
+interface GuardrailEventData {
+  yearInRetirement: number;
+  activations: number;
+  percentage: number;
+}
+
+interface SimulationResultData {
+  percentiles: PercentileData;
+  ages: number[];
+  successRate: number;
+  medianEndBalance: number;
+  guardrailActivations: number;
+  guardrailEvents: GuardrailEventData[];
+  inflationScenarios: {
+    low: number;
+    median: number;
+    high: number;
+  };
+  executionTimeMs: number;
+}
 
 export interface ReportData {
   userName: string;
   confidenceScore: number;
-  simulationResult: SimulationResult;
+  simulationResult: SimulationResultData;
   currentAge: number;
   retirementAge: number;
   currentSavings: number;
@@ -28,25 +57,18 @@ interface StressScenario {
 
 // PDF styling constants
 const COLORS = {
-  primary: [32, 178, 119] as [number, number, number], // Primary green
-  secondary: [15, 23, 42] as [number, number, number], // Dark background
+  primary: [32, 178, 119] as [number, number, number],
+  secondary: [15, 23, 42] as [number, number, number],
   text: [51, 65, 85] as [number, number, number],
   muted: [100, 116, 139] as [number, number, number],
-  accent: [245, 158, 11] as [number, number, number], // Amber
+  accent: [245, 158, 11] as [number, number, number],
   danger: [239, 68, 68] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
 };
 
-/**
- * Generate stress test scenarios based on historical data
- */
-function generateStressScenarios(result: SimulationResult, data: ReportData): StressScenario[] {
+function generateStressScenarios(result: SimulationResultData, data: ReportData): StressScenario[] {
   const retirementIndex = data.retirementAge - data.currentAge;
   const medianAtRetirement = result.percentiles.p50[retirementIndex] || data.currentSavings;
-  
-  // Simulate historical crisis impacts using percentile data
-  const p5 = result.percentiles.p5;
-  const p50 = result.percentiles.p50;
   
   return [
     {
@@ -73,10 +95,7 @@ function generateStressScenarios(result: SimulationResult, data: ReportData): St
   ];
 }
 
-/**
- * Generate executive summary based on simulation results
- */
-function generateExecutiveSummary(result: SimulationResult, data: ReportData): string[] {
+function generateExecutiveSummary(result: SimulationResultData, data: ReportData): string[] {
   const successRate = result.successRate;
   const guardrailPercentage = result.guardrailEvents.length > 0
     ? (result.guardrailEvents.reduce((sum, e) => sum + e.activations, 0) / 5000 * 100).toFixed(1)
@@ -85,19 +104,14 @@ function generateExecutiveSummary(result: SimulationResult, data: ReportData): s
   const retirementIndex = data.retirementAge - data.currentAge;
   const medianAtRetirement = result.percentiles.p50[retirementIndex];
   
-  const sentences = [
+  return [
     `Your retirement plan survived ${successRate.toFixed(0)}% of the 5,000 simulated historical market scenarios, ${successRate >= 90 ? 'exceeding' : successRate >= 75 ? 'meeting' : 'falling below'} the recommended 90% threshold.`,
     `At retirement age ${data.retirementAge}, your median projected portfolio value is ${formatCurrency(medianAtRetirement)}, with a 5th percentile "stress case" of ${formatCurrency(result.percentiles.p5[retirementIndex])}.`,
     `The spending guardrail system was activated in ${guardrailPercentage}% of trials, demonstrating ${parseFloat(guardrailPercentage) < 10 ? 'excellent portfolio resilience' : parseFloat(guardrailPercentage) < 25 ? 'adequate risk management' : 'the need for spending adjustments under stress'}.`,
   ];
-  
-  return sentences;
 }
 
-/**
- * Generate guardrail analysis text
- */
-function generateGuardrailAnalysis(result: SimulationResult): string[] {
+function generateGuardrailAnalysis(result: SimulationResultData): string[] {
   if (result.guardrailEvents.length === 0) {
     return [
       'The 10% Spending Reduction Rule was rarely triggered across all simulations.',
@@ -123,39 +137,28 @@ function formatCurrency(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
-/**
- * Capture a DOM element as a high-resolution image
- */
-async function captureChartAsImage(elementId: string, scale: number = 2): Promise<string | null> {
+async function captureChartAsImage(elementId: string, scale = 2): Promise<string | null> {
   const element = document.getElementById(elementId);
   if (!element) return null;
   
   try {
     const canvas = await html2canvas(element, {
       scale,
-      backgroundColor: '#0f172a', // Match dark theme
+      backgroundColor: '#0f172a',
       logging: false,
       useCORS: true,
     });
     return canvas.toDataURL('image/png');
-  } catch (error) {
-    console.error('Failed to capture chart:', error);
+  } catch {
     return null;
   }
 }
 
-/**
- * Main PDF generation function
- */
 export async function generateRetirementReport(
   data: ReportData,
   chartElementIds: { fanChart?: string; resilienceMeter?: string } = {}
 ): Promise<Blob> {
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -164,13 +167,10 @@ export async function generateRetirementReport(
   
   let y = margin;
   
-  // ================== COVER PAGE ==================
-  
-  // Background
+  // Cover Page
   pdf.setFillColor(...COLORS.secondary);
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
   
-  // Logo placeholder (geometric shape as brand element)
   pdf.setFillColor(...COLORS.primary);
   pdf.circle(pageWidth / 2, 50, 15, 'F');
   pdf.setTextColor(...COLORS.white);
@@ -178,63 +178,47 @@ export async function generateRetirementReport(
   pdf.setFont('helvetica', 'bold');
   pdf.text('RR', pageWidth / 2, 53, { align: 'center' });
   
-  // Title
   y = 90;
   pdf.setTextColor(...COLORS.white);
   pdf.setFontSize(32);
-  pdf.setFont('helvetica', 'bold');
   pdf.text('Retirement Resilience', pageWidth / 2, y, { align: 'center' });
-  y += 12;
-  pdf.text('Report', pageWidth / 2, y, { align: 'center' });
+  pdf.text('Report', pageWidth / 2, y + 12, { align: 'center' });
   
-  // User name
-  y += 25;
+  y = 127;
   pdf.setFontSize(18);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...COLORS.muted);
   pdf.text('Prepared for', pageWidth / 2, y, { align: 'center' });
-  y += 10;
   pdf.setTextColor(...COLORS.white);
   pdf.setFont('helvetica', 'bold');
-  pdf.text(data.userName || 'Investor', pageWidth / 2, y, { align: 'center' });
+  pdf.text(data.userName || 'Investor', pageWidth / 2, y + 10, { align: 'center' });
   
-  // Confidence Score Circle
+  // Confidence Score
   y = 170;
   const scoreRadius = 30;
   const scoreColor = data.confidenceScore >= 90 ? COLORS.primary : 
                      data.confidenceScore >= 75 ? COLORS.accent : COLORS.danger;
   
-  // Outer ring
   pdf.setDrawColor(...scoreColor);
   pdf.setLineWidth(3);
   pdf.circle(pageWidth / 2, y, scoreRadius, 'S');
-  
-  // Score text
   pdf.setTextColor(...scoreColor);
   pdf.setFontSize(36);
-  pdf.setFont('helvetica', 'bold');
   pdf.text(`${data.confidenceScore.toFixed(0)}%`, pageWidth / 2, y + 5, { align: 'center' });
   
-  // Score label
-  y += scoreRadius + 15;
   pdf.setFontSize(14);
   pdf.setTextColor(...COLORS.muted);
-  pdf.text('Retirement Confidence Score', pageWidth / 2, y, { align: 'center' });
+  pdf.text('Retirement Confidence Score', pageWidth / 2, y + scoreRadius + 15, { align: 'center' });
   
-  // Date
-  y = pageHeight - 30;
   pdf.setFontSize(10);
-  pdf.setTextColor(...COLORS.muted);
-  pdf.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth / 2, y, { align: 'center' });
+  pdf.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth / 2, pageHeight - 30, { align: 'center' });
   
-  // ================== PAGE 2: EXECUTIVE SUMMARY ==================
+  // Page 2: Executive Summary
   pdf.addPage();
   pdf.setFillColor(...COLORS.white);
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
   
   y = margin;
-  
-  // Section header
   pdf.setFillColor(...COLORS.primary);
   pdf.rect(margin, y, 5, 10, 'F');
   pdf.setTextColor(...COLORS.secondary);
@@ -243,7 +227,6 @@ export async function generateRetirementReport(
   pdf.text('Executive Summary', margin + 10, y + 8);
   y += 25;
   
-  // Summary text
   const summaryLines = generateExecutiveSummary(data.simulationResult, data);
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'normal');
@@ -258,12 +241,10 @@ export async function generateRetirementReport(
     y += 5;
   });
   
-  // Key Metrics Box
+  // Key Metrics
   y += 10;
   pdf.setFillColor(240, 249, 255);
   pdf.roundedRect(margin, y, contentWidth, 50, 3, 3, 'F');
-  pdf.setDrawColor(200, 220, 240);
-  pdf.roundedRect(margin, y, contentWidth, 50, 3, 3, 'S');
   
   y += 15;
   const metricSpacing = contentWidth / 4;
@@ -289,19 +270,16 @@ export async function generateRetirementReport(
   
   y += 55;
   
-  // ================== STRESS TEST RESULTS ==================
-  
+  // Stress Test Results
   pdf.setFillColor(...COLORS.accent);
   pdf.rect(margin, y, 5, 10, 'F');
   pdf.setTextColor(...COLORS.secondary);
   pdf.setFontSize(20);
-  pdf.setFont('helvetica', 'bold');
   pdf.text('Historical Stress Test Results', margin + 10, y + 8);
   y += 25;
   
   const scenarios = generateStressScenarios(data.simulationResult, data);
   
-  // Table header
   pdf.setFillColor(248, 250, 252);
   pdf.rect(margin, y, contentWidth, 12, 'F');
   pdf.setFontSize(10);
@@ -316,7 +294,6 @@ export async function generateRetirementReport(
   });
   y += 15;
   
-  // Table rows
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...COLORS.text);
   
@@ -329,22 +306,18 @@ export async function generateRetirementReport(
     x += colWidths[1];
     pdf.text(formatCurrency(scenario.endingValue), x, y);
     x += colWidths[2];
-    
-    // Status indicator
     pdf.setFillColor(...(scenario.survived ? COLORS.primary : COLORS.danger));
     pdf.circle(x + 10, y - 2, 3, 'F');
     pdf.text(scenario.survived ? 'Yes' : 'At Risk', x + 18, y);
-    
     y += 12;
   });
   
-  // ================== PAGE 3: GUARDRAIL ANALYSIS ==================
+  // Page 3: Guardrail Analysis
   pdf.addPage();
   pdf.setFillColor(...COLORS.white);
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
   
   y = margin;
-  
   pdf.setFillColor(...COLORS.accent);
   pdf.rect(margin, y, 5, 10, 'F');
   pdf.setTextColor(...COLORS.secondary);
@@ -353,7 +326,6 @@ export async function generateRetirementReport(
   pdf.text('Guardrail Analysis', margin + 10, y + 8);
   y += 20;
   
-  // Guardrail explanation box
   pdf.setFillColor(255, 251, 235);
   pdf.roundedRect(margin, y, contentWidth, 30, 3, 3, 'F');
   pdf.setFontSize(10);
@@ -368,16 +340,13 @@ export async function generateRetirementReport(
   });
   y += 40;
   
-  // Guardrail analysis text
   const guardrailAnalysis = generateGuardrailAnalysis(data.simulationResult);
   pdf.setFontSize(11);
   pdf.setTextColor(...COLORS.text);
   
-  guardrailAnalysis.forEach((line, index) => {
-    const bulletY = y + 3;
+  guardrailAnalysis.forEach((line) => {
     pdf.setFillColor(...COLORS.accent);
-    pdf.circle(margin + 3, bulletY - 1, 2, 'F');
-    
+    pdf.circle(margin + 3, y + 2, 2, 'F');
     const splitLines = pdf.splitTextToSize(line, contentWidth - 15);
     splitLines.forEach((splitLine: string) => {
       pdf.text(splitLine, margin + 10, y);
@@ -386,7 +355,7 @@ export async function generateRetirementReport(
     y += 5;
   });
   
-  // Guardrail events summary
+  // Guardrail events chart
   if (data.simulationResult.guardrailEvents.length > 0) {
     y += 10;
     pdf.setFontSize(12);
@@ -395,7 +364,6 @@ export async function generateRetirementReport(
     pdf.text('Guardrail Activation by Year', margin, y);
     y += 10;
     
-    // Mini bar chart representation
     const maxActivations = Math.max(...data.simulationResult.guardrailEvents.map(e => e.activations));
     const barMaxWidth = contentWidth - 40;
     
@@ -403,7 +371,6 @@ export async function generateRetirementReport(
       const barWidth = (event.activations / maxActivations) * barMaxWidth;
       pdf.setFillColor(...COLORS.accent);
       pdf.roundedRect(margin + 25, y - 4, barWidth, 8, 2, 2, 'F');
-      
       pdf.setFontSize(9);
       pdf.setTextColor(...COLORS.muted);
       pdf.text(`Y${event.yearInRetirement}`, margin, y);
@@ -413,7 +380,7 @@ export async function generateRetirementReport(
     });
   }
   
-  // Capture and embed charts if available
+  // Embed charts
   if (chartElementIds.fanChart) {
     const fanChartImage = await captureChartAsImage(chartElementIds.fanChart);
     if (fanChartImage) {
@@ -430,19 +397,14 @@ export async function generateRetirementReport(
       
       try {
         pdf.addImage(fanChartImage, 'PNG', margin, y, contentWidth, 55);
-        y += 60;
-      } catch (e) {
-        console.error('Failed to add fan chart image', e);
-      }
+      } catch { /* ignore */ }
     }
   }
   
-  // ================== FOOTER ON ALL PAGES ==================
+  // Footer on all pages
   const totalPages = pdf.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     pdf.setPage(i);
-    
-    // Disclaimer footer
     pdf.setFillColor(248, 250, 252);
     pdf.rect(0, pageHeight - 15, pageWidth, 15, 'F');
     pdf.setFontSize(7);
@@ -453,17 +415,12 @@ export async function generateRetirementReport(
       pageHeight - 8,
       { align: 'center' }
     );
-    
-    // Page number
     pdf.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
   }
   
   return pdf.output('blob');
 }
 
-/**
- * Download the PDF report
- */
 export async function downloadRetirementReport(
   data: ReportData,
   chartElementIds: { fanChart?: string; resilienceMeter?: string } = {}
