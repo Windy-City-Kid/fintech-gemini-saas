@@ -108,13 +108,13 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Get all linked accounts with Plaid access tokens
+    // Get all linked accounts for this user
     const { data: accounts, error: accountsError } = await supabaseAdmin
       .from('accounts')
-      .select('id, plaid_access_token, plaid_item_id, account_name')
+      .select('id, plaid_item_id, account_name')
       .eq('user_id', user.id)
       .eq('is_manual_entry', false)
-      .not('plaid_access_token', 'is', null);
+      .not('plaid_item_id', 'is', null);
 
     if (accountsError) {
       console.error("Error fetching accounts:", accountsError);
@@ -134,7 +134,35 @@ serve(async (req) => {
       );
     }
 
-    // Track unique access tokens (items) to avoid duplicate API calls
+    // Get unique plaid_item_ids
+    const uniqueItemIds = [...new Set(accounts.map(a => a.plaid_item_id).filter(Boolean))];
+
+    // Fetch access tokens from secure plaid_tokens table
+    const { data: tokens, error: tokensError } = await supabaseAdmin
+      .from('plaid_tokens')
+      .select('plaid_item_id, access_token, account_id')
+      .eq('user_id', user.id)
+      .in('plaid_item_id', uniqueItemIds);
+
+    if (tokensError) {
+      console.error("Error fetching tokens:", tokensError);
+      throw new Error("Failed to fetch access tokens");
+    }
+
+    if (!tokens || tokens.length === 0) {
+      console.log("No access tokens found for linked accounts");
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "No access tokens available",
+          holdings: [],
+          allocation: { Stocks: 0, Bonds: 0, Cash: 0, Other: 0 }
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
+    // Track processed tokens to avoid duplicate API calls
     const processedTokens = new Set<string>();
     const allHoldings: Array<{
       account_id: string;
@@ -147,11 +175,11 @@ serve(async (req) => {
       asset_class: string;
     }> = [];
 
-    for (const account of accounts) {
-      if (!account.plaid_access_token || processedTokens.has(account.plaid_access_token)) {
+    for (const tokenRecord of tokens) {
+      if (!tokenRecord.access_token || processedTokens.has(tokenRecord.access_token)) {
         continue;
       }
-      processedTokens.add(account.plaid_access_token);
+      processedTokens.add(tokenRecord.access_token);
 
       try {
         // Fetch holdings from Plaid
@@ -161,19 +189,18 @@ serve(async (req) => {
           body: JSON.stringify({
             client_id: plaidClientId,
             secret: plaidSecret,
-            access_token: account.plaid_access_token,
+            access_token: tokenRecord.access_token,
           }),
         });
 
         if (!holdingsResponse.ok) {
           const errorData = await holdingsResponse.json();
-          console.error("Plaid holdings error for account:", account.id, errorData);
-          // Continue with other accounts instead of failing completely
+          console.error("Plaid holdings error for item:", tokenRecord.plaid_item_id, errorData);
           continue;
         }
 
         const holdingsData = await holdingsResponse.json();
-        console.log(`Retrieved ${holdingsData.holdings?.length || 0} holdings for account ${account.id}`);
+        console.log(`Retrieved ${holdingsData.holdings?.length || 0} holdings for item ${tokenRecord.plaid_item_id}`);
 
         // Create a map of securities for quick lookup
         const securitiesMap = new Map<string, typeof holdingsData.securities[0]>();
@@ -193,7 +220,7 @@ serve(async (req) => {
           });
 
           allHoldings.push({
-            account_id: account.id,
+            account_id: tokenRecord.account_id,
             security_id: holding.security_id,
             ticker_symbol: security.ticker_symbol || '',
             security_name: security.name || 'Unknown Security',
@@ -204,8 +231,7 @@ serve(async (req) => {
           });
         }
       } catch (err) {
-        console.error("Error fetching holdings for account:", account.id, err);
-        // Continue with other accounts
+        console.error("Error fetching holdings for item:", tokenRecord.plaid_item_id, err);
       }
     }
 
