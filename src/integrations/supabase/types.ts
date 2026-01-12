@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       accounts: {
         Row: {
+          account_mask: string | null
           account_name: string
           account_type: Database["public"]["Enums"]["account_type"]
           created_at: string
@@ -25,11 +26,13 @@ export type Database = {
           is_manual_entry: boolean | null
           last_synced_at: string | null
           plaid_access_token: string | null
+          plaid_account_id: string | null
           plaid_item_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          account_mask?: string | null
           account_name: string
           account_type: Database["public"]["Enums"]["account_type"]
           created_at?: string
@@ -39,11 +42,13 @@ export type Database = {
           is_manual_entry?: boolean | null
           last_synced_at?: string | null
           plaid_access_token?: string | null
+          plaid_account_id?: string | null
           plaid_item_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          account_mask?: string | null
           account_name?: string
           account_type?: Database["public"]["Enums"]["account_type"]
           created_at?: string
@@ -53,11 +58,65 @@ export type Database = {
           is_manual_entry?: boolean | null
           last_synced_at?: string | null
           plaid_access_token?: string | null
+          plaid_account_id?: string | null
           plaid_item_id?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      holdings: {
+        Row: {
+          account_id: string
+          asset_class: string
+          cost_basis: number | null
+          created_at: string
+          id: string
+          market_value: number
+          quantity: number
+          security_id: string | null
+          security_name: string
+          ticker_symbol: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          asset_class?: string
+          cost_basis?: number | null
+          created_at?: string
+          id?: string
+          market_value?: number
+          quantity?: number
+          security_id?: string | null
+          security_name: string
+          ticker_symbol?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          asset_class?: string
+          cost_basis?: number | null
+          created_at?: string
+          id?: string
+          market_value?: number
+          quantity?: number
+          security_id?: string | null
+          security_name?: string
+          ticker_symbol?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holdings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

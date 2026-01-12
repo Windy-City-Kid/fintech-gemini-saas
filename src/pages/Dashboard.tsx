@@ -5,6 +5,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { AccountsList } from '@/components/dashboard/AccountsList';
 import { NetWorthChart } from '@/components/dashboard/NetWorthChart';
 import { AllocationChart } from '@/components/dashboard/AllocationChart';
+import { PortfolioMixChart } from '@/components/dashboard/PortfolioMixChart';
 import { PlaidSyncOverlay } from '@/components/dashboard/PlaidSyncOverlay';
 import { usePlaidLink } from '@/hooks/usePlaidLink';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +18,7 @@ interface Account {
   account_type: string;
   current_balance: number;
   is_manual_entry: boolean;
+  account_mask?: string | null;
 }
 
 export default function Dashboard() {
@@ -113,8 +115,9 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <NetWorthChart totalNetWorth={totalNetWorth} />
+        <PortfolioMixChart onRefresh={fetchAccounts} />
         <AllocationChart accounts={accounts} />
       </div>
 

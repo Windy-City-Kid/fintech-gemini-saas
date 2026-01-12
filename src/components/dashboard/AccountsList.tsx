@@ -12,6 +12,7 @@ interface Account {
   account_type: string;
   current_balance: number;
   is_manual_entry: boolean;
+  account_mask?: string | null;
 }
 
 interface AccountsListProps {
@@ -90,8 +91,20 @@ export function AccountsList({ accounts, onRefresh }: AccountsListProps) {
                   <Building2 className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium">{account.account_name}</p>
-                  <p className="text-sm text-muted-foreground">{account.institution_name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{account.account_name}</p>
+                    {account.account_mask && !account.is_manual_entry && (
+                      <span className="text-xs text-muted-foreground font-mono">
+                        ••••{account.account_mask}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">{account.institution_name}</p>
+                    {!account.is_manual_entry && (
+                      <Link2 className="h-3 w-3 text-primary" />
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-4">
