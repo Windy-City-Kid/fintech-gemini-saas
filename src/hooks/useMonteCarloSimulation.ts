@@ -84,6 +84,20 @@ export interface HouseholdParams {
   legacyGoalAmount: number;
 }
 
+export interface MoneyFlowParams {
+  contributions: {
+    accountType: string;
+    annualAmount: number;
+    isIncomeLinked: boolean;
+    startAge: number;
+    endAge: number;
+  }[];
+  excessIncomeEnabled: boolean;
+  excessSavePercentage: number;
+  excessTargetAccount: string;
+  withdrawalOrder: string[]; // e.g., ['Brokerage', '401k', 'IRA', 'Roth']
+}
+
 export interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -95,6 +109,7 @@ export interface SimulationParams {
   socialSecurity?: SocialSecurityParams;
   medicare?: MedicareParams;
   household?: HouseholdParams;
+  moneyFlows?: MoneyFlowParams;
 }
 
 export interface GuardrailEvent {

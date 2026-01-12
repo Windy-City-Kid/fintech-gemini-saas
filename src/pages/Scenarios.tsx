@@ -20,6 +20,8 @@ import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
 import { ResilienceMeter } from '@/components/scenarios/ResilienceMeter';
 import { ExportReportButton } from '@/components/scenarios/ExportReportButton';
+import { MoneyFlowsTile } from '@/components/scenarios/MoneyFlowsTile';
+import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_COLORS } from '@/lib/correlationMatrix';
 import { AssetAllocation } from '@/lib/assetClassification';
@@ -52,6 +54,7 @@ export default function Scenarios() {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [moneyFlowsDialogOpen, setMoneyFlowsDialogOpen] = useState(false);
   
   // Use the portfolio data bridge hook
   const portfolio = usePortfolioData();
@@ -266,7 +269,7 @@ export default function Scenarios() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Monte Carlo Chart */}
         <div className="lg:col-span-2 stat-card" id="fan-chart-container">
           <div className="flex items-center justify-between mb-6">
@@ -328,6 +331,13 @@ export default function Scenarios() {
         <ResilienceMeter 
           successRate={simulationResult?.successRate || 0} 
           loading={simulating} 
+        />
+
+        {/* Money Flows Tile */}
+        <MoneyFlowsTile 
+          currentAge={formValues.current_age}
+          monthlySpending={formValues.monthly_retirement_spending}
+          onManageClick={() => setMoneyFlowsDialogOpen(true)}
         />
 
         {/* Assumptions Form */}
@@ -472,6 +482,11 @@ export default function Scenarios() {
           </div>
         </div>
       </div>
+      {/* Money Flows Dialog */}
+      <MoneyFlowsDialog 
+        open={moneyFlowsDialogOpen} 
+        onOpenChange={setMoneyFlowsDialogOpen} 
+      />
     </DashboardLayout>
   );
 }
