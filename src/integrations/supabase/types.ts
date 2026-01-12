@@ -115,6 +115,57 @@ export type Database = {
           },
         ]
       }
+      money_flows: {
+        Row: {
+          account_type: string
+          annual_amount: number
+          contribution_name: string
+          created_at: string
+          end_age: number
+          excess_income_enabled: boolean
+          excess_save_percentage: number | null
+          excess_target_account: string | null
+          id: string
+          income_link_percentage: number | null
+          is_income_linked: boolean
+          start_age: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string
+          annual_amount?: number
+          contribution_name?: string
+          created_at?: string
+          end_age?: number
+          excess_income_enabled?: boolean
+          excess_save_percentage?: number | null
+          excess_target_account?: string | null
+          id?: string
+          income_link_percentage?: number | null
+          is_income_linked?: boolean
+          start_age?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string
+          annual_amount?: number
+          contribution_name?: string
+          created_at?: string
+          end_age?: number
+          excess_income_enabled?: boolean
+          excess_save_percentage?: number | null
+          excess_target_account?: string | null
+          id?: string
+          income_link_percentage?: number | null
+          is_income_linked?: boolean
+          start_age?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plaid_tokens: {
         Row: {
           access_token: string
@@ -271,6 +322,7 @@ export type Database = {
           spouse_pia: number | null
           updated_at: string
           user_id: string
+          withdrawal_order: string[] | null
         }
         Insert: {
           annual_contribution?: number | null
@@ -296,6 +348,7 @@ export type Database = {
           spouse_pia?: number | null
           updated_at?: string
           user_id: string
+          withdrawal_order?: string[] | null
         }
         Update: {
           annual_contribution?: number | null
@@ -321,6 +374,7 @@ export type Database = {
           spouse_pia?: number | null
           updated_at?: string
           user_id?: string
+          withdrawal_order?: string[] | null
         }
         Relationships: []
       }
