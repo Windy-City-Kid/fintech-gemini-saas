@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Shield, Bell, Lock, Save, AlertTriangle } from 'lucide-react';
+import { User, Shield, Bell, Lock, Save, AlertTriangle, Users, Heart } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,13 +18,27 @@ const profileSchema = z.object({
   email: z.string().email(),
 });
 
+const familySchema = z.object({
+  spouse_name: z.string().optional(),
+  spouse_dob: z.string().optional(),
+  spouse_retirement_age: z.coerce.number().min(55).max(80).optional(),
+  spouse_pia: z.coerce.number().min(0).optional(),
+  legacy_goal_amount: z.coerce.number().min(0).optional(),
+});
+
 type ProfileFormData = z.infer<typeof profileSchema>;
+type FamilyFormData = z.infer<typeof familySchema>;
 
 interface Profile {
   id: string;
   full_name: string | null;
   email: string | null;
   mfa_enabled: boolean | null;
+  spouse_name: string | null;
+  spouse_dob: string | null;
+  spouse_retirement_age: number | null;
+  spouse_pia: number | null;
+  legacy_goal_amount: number | null;
 }
 
 export default function Settings() {
@@ -32,9 +46,19 @@ export default function Settings() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingFamily, setSavingFamily] = useState(false);
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
+  });
+
+  const { 
+    register: registerFamily, 
+    handleSubmit: handleSubmitFamily, 
+    setValue: setFamilyValue,
+    formState: { errors: familyErrors } 
+  } = useForm<FamilyFormData>({
+    resolver: zodResolver(familySchema),
   });
 
   useEffect(() => {
@@ -54,6 +78,13 @@ export default function Settings() {
           setProfile(data);
           setValue('full_name', data.full_name || '');
           setValue('email', data.email || user.email || '');
+          
+          // Family form values
+          setFamilyValue('spouse_name', data.spouse_name || '');
+          setFamilyValue('spouse_dob', data.spouse_dob || '');
+          setFamilyValue('spouse_retirement_age', data.spouse_retirement_age || 65);
+          setFamilyValue('spouse_pia', data.spouse_pia || 0);
+          setFamilyValue('legacy_goal_amount', data.legacy_goal_amount || 0);
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -63,7 +94,7 @@ export default function Settings() {
     };
 
     fetchProfile();
-  }, [user, setValue]);
+  }, [user, setValue, setFamilyValue]);
 
   const onSubmit = async (data: ProfileFormData) => {
     if (!user || !profile) return;
@@ -86,6 +117,42 @@ export default function Settings() {
     }
   };
 
+  const onSubmitFamily = async (data: FamilyFormData) => {
+    if (!user || !profile) return;
+    
+    setSavingFamily(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          spouse_name: data.spouse_name || null,
+          spouse_dob: data.spouse_dob || null,
+          spouse_retirement_age: data.spouse_retirement_age || null,
+          spouse_pia: data.spouse_pia || null,
+          legacy_goal_amount: data.legacy_goal_amount || null,
+        })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+      
+      // Update local state
+      setProfile(prev => prev ? {
+        ...prev,
+        spouse_name: data.spouse_name || null,
+        spouse_dob: data.spouse_dob || null,
+        spouse_retirement_age: data.spouse_retirement_age || null,
+        spouse_pia: data.spouse_pia || null,
+        legacy_goal_amount: data.legacy_goal_amount || null,
+      } : null);
+      
+      toast.success('Family & legacy settings saved');
+    } catch (error: any) {
+      toast.error('Failed to save settings', { description: error.message });
+    } finally {
+      setSavingFamily(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="mb-8">
@@ -99,6 +166,10 @@ export default function Settings() {
             <TabsTrigger value="profile" className="gap-2">
               <User className="h-4 w-4" />
               Profile
+            </TabsTrigger>
+            <TabsTrigger value="family" className="gap-2">
+              <Users className="h-4 w-4" />
+              Family & Legacy
             </TabsTrigger>
             <TabsTrigger value="security" className="gap-2">
               <Shield className="h-4 w-4" />
@@ -142,6 +213,90 @@ export default function Settings() {
                 <Button type="submit" className="gap-2" disabled={saving}>
                   <Save className="h-4 w-4" />
                   {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </form>
+            </div>
+          </TabsContent>
+
+          {/* Family & Legacy Tab */}
+          <TabsContent value="family" className="space-y-6">
+            <div className="stat-card">
+              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <Heart className="h-5 w-5 text-primary" />
+                Spouse Information
+              </h3>
+              
+              <form onSubmit={handleSubmitFamily(onSubmitFamily)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="spouse_name">Spouse Name</Label>
+                    <Input 
+                      id="spouse_name"
+                      placeholder="Enter spouse's name"
+                      {...registerFamily('spouse_name')}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="spouse_dob">Spouse Date of Birth</Label>
+                    <Input 
+                      id="spouse_dob"
+                      type="date"
+                      {...registerFamily('spouse_dob')}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="spouse_retirement_age">Spouse Retirement Age</Label>
+                    <Input 
+                      id="spouse_retirement_age"
+                      type="number"
+                      min={55}
+                      max={80}
+                      {...registerFamily('spouse_retirement_age')}
+                    />
+                    {familyErrors.spouse_retirement_age && (
+                      <p className="text-sm text-destructive">{familyErrors.spouse_retirement_age.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="spouse_pia">Spouse Social Security PIA ($/month)</Label>
+                    <Input 
+                      id="spouse_pia"
+                      type="number"
+                      min={0}
+                      placeholder="Monthly benefit at FRA"
+                      {...registerFamily('spouse_pia')}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Primary Insurance Amount at Full Retirement Age
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <h4 className="font-semibold mb-4">Legacy Goals</h4>
+                  <div className="space-y-2 max-w-md">
+                    <Label htmlFor="legacy_goal_amount">Target Inheritance Amount ($)</Label>
+                    <Input 
+                      id="legacy_goal_amount"
+                      type="number"
+                      min={0}
+                      step={10000}
+                      placeholder="e.g., 500000"
+                      {...registerFamily('legacy_goal_amount')}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      The minimum portfolio value you want to leave at the end of your plan. 
+                      Trials ending below this amount will be marked as unsuccessful.
+                    </p>
+                  </div>
+                </div>
+
+                <Button type="submit" className="gap-2" disabled={savingFamily}>
+                  <Save className="h-4 w-4" />
+                  {savingFamily ? 'Saving...' : 'Save Family & Legacy'}
                 </Button>
               </form>
             </div>

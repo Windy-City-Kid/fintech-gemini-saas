@@ -48,6 +48,14 @@ interface MedicareParams {
   estimatedIRABalance: number;  // IRA/401k balance for RMD calculations
 }
 
+interface HouseholdParams {
+  isMarried: boolean;
+  primaryLifeExpectancy: number;
+  spouseLifeExpectancy?: number;
+  spouseCurrentAge?: number;
+  legacyGoalAmount: number;     // Minimum end balance for success
+}
+
 interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -58,6 +66,7 @@ interface SimulationParams {
   rateAssumptions?: RateAssumptions;
   socialSecurity?: SocialSecurityParams;
   medicare?: MedicareParams;
+  household?: HouseholdParams;
 }
 
 interface GuardrailEvent {
@@ -450,13 +459,31 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   const startTime = performance.now();
   
   const yearsToRetirement = params.retirementAge - params.currentAge;
-  const retirementYears = 35;
-  const yearsToSimulate = yearsToRetirement + retirementYears;
+  
+  // Dual lifespan calculation: run until the LATER of:
+  // 1. Primary's life expectancy
+  // 2. Spouse's life expectancy (if married)
+  let endAge = params.household?.primaryLifeExpectancy || (params.currentAge + 35 + yearsToRetirement);
+  
+  if (params.household?.isMarried && params.household?.spouseLifeExpectancy && params.household?.spouseCurrentAge) {
+    const spouseEndAge = params.household.spouseLifeExpectancy;
+    const spouseCurrentAge = params.household.spouseCurrentAge;
+    const ageDiff = params.currentAge - spouseCurrentAge;
+    // Spouse's end year relative to primary
+    const spouseEndYear = spouseEndAge + ageDiff;
+    endAge = Math.max(endAge, spouseEndYear);
+  }
+  
+  const yearsToSimulate = Math.max(endAge - params.currentAge, yearsToRetirement + 25);
+  const retirementYears = yearsToSimulate - yearsToRetirement;
   
   const ages: number[] = [];
   for (let i = 0; i <= yearsToSimulate; i++) {
     ages.push(params.currentAge + i);
   }
+  
+  // Legacy goal for success determination
+  const legacyGoal = params.household?.legacyGoalAmount || 0;
   
   // Generate all LHS samples upfront (4 dims: 3 assets + inflation)
   const yearSamples = generateLHSSamples(iterations, yearsToSimulate, 4);
@@ -633,7 +660,9 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
       allBalances[iter * (yearsToSimulate + 1) + year + 1] = Math.max(0, balance);
     }
     
-    if (allBalances[iter * (yearsToSimulate + 1) + yearsToSimulate] > 0) {
+    // Success = portfolio remains ABOVE legacy goal at end
+    const finalBalance = allBalances[iter * (yearsToSimulate + 1) + yearsToSimulate];
+    if (finalBalance >= legacyGoal) {
       successCount++;
     }
     

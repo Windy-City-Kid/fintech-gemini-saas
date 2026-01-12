@@ -76,6 +76,14 @@ export interface MedicareParams {
   estimatedIRABalance: number;
 }
 
+export interface HouseholdParams {
+  isMarried: boolean;
+  primaryLifeExpectancy: number;
+  spouseLifeExpectancy?: number;
+  spouseCurrentAge?: number;
+  legacyGoalAmount: number;
+}
+
 export interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -86,6 +94,7 @@ export interface SimulationParams {
   rateAssumptions?: RateAssumptions;
   socialSecurity?: SocialSecurityParams;
   medicare?: MedicareParams;
+  household?: HouseholdParams;
 }
 
 export interface GuardrailEvent {

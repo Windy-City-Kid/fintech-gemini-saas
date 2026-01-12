@@ -160,7 +160,12 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          legacy_goal_amount: number | null
           mfa_enabled: boolean | null
+          spouse_dob: string | null
+          spouse_name: string | null
+          spouse_pia: number | null
+          spouse_retirement_age: number | null
           updated_at: string
           user_id: string
         }
@@ -170,7 +175,12 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          legacy_goal_amount?: number | null
           mfa_enabled?: boolean | null
+          spouse_dob?: string | null
+          spouse_name?: string | null
+          spouse_pia?: number | null
+          spouse_retirement_age?: number | null
           updated_at?: string
           user_id: string
         }
@@ -180,7 +190,12 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          legacy_goal_amount?: number | null
           mfa_enabled?: boolean | null
+          spouse_dob?: string | null
+          spouse_name?: string | null
+          spouse_pia?: number | null
+          spouse_retirement_age?: number | null
           updated_at?: string
           user_id?: string
         }
