@@ -22,6 +22,7 @@ import { ResilienceMeter } from '@/components/scenarios/ResilienceMeter';
 import { ExportReportButton } from '@/components/scenarios/ExportReportButton';
 import { MoneyFlowsTile } from '@/components/scenarios/MoneyFlowsTile';
 import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
+import { PropertySummaryCard } from '@/components/scenarios/PropertySummaryCard';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { useProperties } from '@/hooks/useProperties';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_COLORS } from '@/lib/correlationMatrix';
@@ -355,6 +356,13 @@ export default function Scenarios() {
           currentAge={formValues.current_age}
           monthlySpending={formValues.monthly_retirement_spending}
           onManageClick={() => setMoneyFlowsDialogOpen(true)}
+        />
+
+        {/* Property Summary Card */}
+        <PropertySummaryCard 
+          property={primaryResidence}
+          totalEquity={totalEquity}
+          yearsToRetirement={yearsToRetirement}
         />
 
         {/* Assumptions Form */}
