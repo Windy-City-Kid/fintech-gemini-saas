@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { Calculator, TrendingUp, Calendar, DollarSign, Percent, Save } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, DollarSign, Percent, Save, Play, Info } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { runMonteCarloSimulation, SimulationResult, SimulationParams } from '@/hooks/useMonteCarloSimulation';
+import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
+import { SimulationStats } from '@/components/scenarios/SimulationStats';
 
 const scenarioSchema = z.object({
   scenario_name: z.string().min(1),
@@ -36,12 +39,22 @@ interface Scenario {
   monthly_retirement_spending: number;
 }
 
+interface HoldingsAllocation {
+  Stocks: number;
+  Bonds: number;
+  Cash: number;
+  Other: number;
+}
+
 export default function Scenarios() {
   const { user } = useAuth();
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [accounts, setAccounts] = useState<{ current_balance: number }[]>([]);
+  const [holdings, setHoldings] = useState<HoldingsAllocation>({ Stocks: 0, Bonds: 0, Cash: 0, Other: 0 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [simulating, setSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ScenarioFormData>({
     resolver: zodResolver(scenarioSchema),
@@ -63,9 +76,10 @@ export default function Scenarios() {
       if (!user) return;
       
       try {
-        const [scenarioRes, accountsRes] = await Promise.all([
+        const [scenarioRes, accountsRes, holdingsRes] = await Promise.all([
           supabase.from('scenarios').select('*').eq('is_active', true).single(),
           supabase.from('accounts').select('current_balance'),
+          supabase.from('holdings').select('asset_class, market_value'),
         ]);
 
         if (scenarioRes.data) {
@@ -82,6 +96,20 @@ export default function Scenarios() {
 
         if (accountsRes.data) {
           setAccounts(accountsRes.data);
+        }
+
+        // Calculate holdings allocation
+        if (holdingsRes.data && holdingsRes.data.length > 0) {
+          const allocation = holdingsRes.data.reduce((acc, h) => {
+            const key = h.asset_class as keyof HoldingsAllocation;
+            if (key in acc) {
+              acc[key] += Number(h.market_value);
+            } else {
+              acc.Other += Number(h.market_value);
+            }
+            return acc;
+          }, { Stocks: 0, Bonds: 0, Cash: 0, Other: 0 });
+          setHoldings(allocation);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -120,35 +148,45 @@ export default function Scenarios() {
     }
   };
 
-  // Calculate projection data
+  // Calculate current savings and allocation percentages
   const currentSavings = accounts.reduce((sum, acc) => sum + Number(acc.current_balance), 0);
-  const yearsToRetirement = formValues.retirement_age - formValues.current_age;
+  const totalHoldings = holdings.Stocks + holdings.Bonds + holdings.Cash + holdings.Other;
   
-  const projectionData = [];
-  let balance = currentSavings;
-  
-  for (let year = 0; year <= yearsToRetirement + 30; year++) {
-    const age = formValues.current_age + year;
-    
-    if (year <= yearsToRetirement) {
-      // Accumulation phase
-      balance = balance * (1 + formValues.expected_return) + formValues.annual_contribution;
-    } else {
-      // Withdrawal phase (adjusted for inflation)
-      const inflationAdjustedSpending = formValues.monthly_retirement_spending * 12 * 
-        Math.pow(1 + formValues.inflation_rate, year - yearsToRetirement);
-      balance = balance * (1 + formValues.expected_return * 0.5) - inflationAdjustedSpending;
-    }
-    
-    projectionData.push({
-      age,
-      balance: Math.max(0, balance),
-      phase: year <= yearsToRetirement ? 'accumulation' : 'withdrawal',
-    });
-  }
+  // Use actual holdings allocation or default to 60/40 if no holdings data
+  const stockAllocation = totalHoldings > 0 ? holdings.Stocks / totalHoldings : 0.6;
+  const bondAllocation = totalHoldings > 0 ? (holdings.Bonds + holdings.Cash) / totalHoldings : 0.4;
 
-  const retirementBalance = projectionData.find(d => d.age === formValues.retirement_age)?.balance || 0;
-  const yearsOfRetirement = projectionData.filter(d => d.phase === 'withdrawal' && d.balance > 0).length;
+  const runSimulation = useCallback(() => {
+    setSimulating(true);
+    
+    // Use setTimeout to allow UI to update before heavy computation
+    setTimeout(() => {
+      try {
+        const params: SimulationParams = {
+          currentAge: formValues.current_age,
+          retirementAge: formValues.retirement_age,
+          currentSavings,
+          annualContribution: formValues.annual_contribution,
+          monthlyRetirementSpending: formValues.monthly_retirement_spending,
+          expectedReturn: formValues.expected_return,
+          inflationRate: formValues.inflation_rate,
+          stockAllocation,
+          bondAllocation,
+        };
+        
+        const result = runMonteCarloSimulation(params, 5000);
+        setSimulationResult(result);
+        toast.success('Simulation complete', {
+          description: `${result.successRate.toFixed(1)}% success rate across 5,000 trials`,
+        });
+      } catch (error) {
+        console.error('Simulation error:', error);
+        toast.error('Simulation failed');
+      } finally {
+        setSimulating(false);
+      }
+    }, 50);
+  }, [formValues, currentSavings, stockAllocation, bondAllocation]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -156,85 +194,107 @@ export default function Scenarios() {
     return `$${value.toFixed(0)}`;
   };
 
+  const yearsToRetirement = formValues.retirement_age - formValues.current_age;
+
   return (
     <DashboardLayout>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Retirement Scenarios</h1>
-        <p className="text-muted-foreground">Model your path to financial independence</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Monte Carlo Simulation</h1>
+            <p className="text-muted-foreground">
+              5,000 iterations using Latin Hypercube Sampling with correlated asset returns
+            </p>
+          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={runSimulation} 
+                  disabled={simulating}
+                  size="lg"
+                  className="gap-2"
+                >
+                  <Play className="h-5 w-5" />
+                  {simulating ? 'Running...' : 'Run Simulation'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs">
+                <p className="text-sm">
+                  Uses Latin Hypercube Sampling for stratified coverage, Cholesky decomposition 
+                  for correlated stock/bond returns, stochastic inflation, and dynamic spending guardrails.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+
+      {/* Simulation Stats */}
+      <div className="mb-8">
+        <SimulationStats 
+          result={simulationResult} 
+          retirementAge={formValues.retirement_age}
+          currentAge={formValues.current_age}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Projection Chart */}
+        {/* Monte Carlo Chart */}
         <div className="lg:col-span-2 stat-card">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-semibold">Retirement Projection</h3>
-              <p className="text-sm text-muted-foreground">Based on current assumptions</p>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                Probability Distribution
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">
+                        Shows 5th, 25th, 50th, 75th, and 95th percentile outcomes across all simulations.
+                        The bands represent the range of possible outcomes.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </h3>
+              <p className="text-sm text-muted-foreground">Percentile bands from 5,000 Monte Carlo trials</p>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold font-mono text-primary">
-                {formatCurrency(retirementBalance)}
-              </p>
-              <p className="text-sm text-muted-foreground">at retirement</p>
-            </div>
+            {simulationResult && (
+              <div className="text-right">
+                <p className="text-2xl font-bold font-mono text-primary">
+                  {formatCurrency(simulationResult.percentiles.p50[yearsToRetirement] || 0)}
+                </p>
+                <p className="text-sm text-muted-foreground">median at retirement</p>
+              </div>
+            )}
           </div>
 
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={projectionData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 17%)" />
-                <XAxis 
-                  dataKey="age" 
-                  stroke="hsl(215, 20%, 55%)"
-                  fontSize={12}
-                  tickLine={false}
-                />
-                <YAxis 
-                  stroke="hsl(215, 20%, 55%)"
-                  fontSize={12}
-                  tickLine={false}
-                  tickFormatter={formatCurrency}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(222, 47%, 12%)',
-                    border: '1px solid hsl(217, 33%, 20%)',
-                    borderRadius: '8px',
-                  }}
-                  formatter={(value: number) => [formatCurrency(value), 'Balance']}
-                  labelFormatter={(age) => `Age ${age}`}
-                />
-                <ReferenceLine 
-                  x={formValues.retirement_age} 
-                  stroke="hsl(38, 92%, 50%)" 
-                  strokeDasharray="5 5"
-                  label={{ value: 'Retirement', fill: 'hsl(38, 92%, 50%)', fontSize: 12 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="balance"
-                  stroke="hsl(152, 76%, 45%)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <MonteCarloChart 
+            result={simulationResult} 
+            retirementAge={formValues.retirement_age}
+            loading={simulating}
+          />
 
-          <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-border">
-            <div className="text-center">
-              <p className="text-2xl font-bold font-mono">{yearsToRetirement}</p>
-              <p className="text-sm text-muted-foreground">Years to retirement</p>
+          {/* Legend */}
+          {simulationResult && (
+            <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-primary opacity-20" />
+                <span className="text-xs text-muted-foreground">5th-95th percentile</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-primary opacity-40" />
+                <span className="text-xs text-muted-foreground">25th-75th percentile</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-primary" />
+                <span className="text-xs text-muted-foreground">Median</span>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold font-mono text-primary">{formatCurrency(retirementBalance)}</p>
-              <p className="text-sm text-muted-foreground">Projected nest egg</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold font-mono">{yearsOfRetirement}+</p>
-              <p className="text-sm text-muted-foreground">Years funded</p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Assumptions Form */}
@@ -247,6 +307,29 @@ export default function Scenarios() {
               <h3 className="text-lg font-semibold">Assumptions</h3>
               <p className="text-sm text-muted-foreground">Adjust your scenario</p>
             </div>
+          </div>
+
+          {/* Portfolio Allocation Display */}
+          <div className="mb-6 p-3 rounded-lg bg-secondary/30 border border-border">
+            <p className="text-xs text-muted-foreground mb-2">Current Portfolio Mix</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex">
+                <div 
+                  className="h-full bg-primary" 
+                  style={{ width: `${stockAllocation * 100}%` }}
+                />
+                <div 
+                  className="h-full bg-blue-500" 
+                  style={{ width: `${bondAllocation * 100}%` }}
+                />
+              </div>
+              <span className="text-xs font-mono text-muted-foreground">
+                {(stockAllocation * 100).toFixed(0)}/{(bondAllocation * 100).toFixed(0)}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Stocks / Bonds (from linked accounts)
+            </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -288,34 +371,6 @@ export default function Scenarios() {
 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Percent className="h-4 w-4 text-muted-foreground" />
-                <Label>Expected Return: {(formValues.expected_return * 100).toFixed(1)}%</Label>
-              </div>
-              <Slider
-                value={[formValues.expected_return * 100]}
-                onValueChange={(value) => setValue('expected_return', value[0] / 100)}
-                min={3}
-                max={12}
-                step={0.5}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Percent className="h-4 w-4 text-muted-foreground" />
-                <Label>Inflation Rate: {(formValues.inflation_rate * 100).toFixed(1)}%</Label>
-              </div>
-              <Slider
-                value={[formValues.inflation_rate * 100]}
-                onValueChange={(value) => setValue('inflation_rate', value[0] / 100)}
-                min={1}
-                max={6}
-                step={0.25}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <Label>Monthly Retirement Spending</Label>
               </div>
@@ -325,11 +380,50 @@ export default function Scenarios() {
               />
             </div>
 
-            <Button type="submit" className="w-full gap-2" disabled={saving}>
-              <Save className="h-4 w-4" />
-              {saving ? 'Saving...' : 'Save Scenario'}
-            </Button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <Label>Current Savings</Label>
+              </div>
+              <div className="p-3 rounded-md bg-muted/50 border border-border">
+                <p className="text-lg font-semibold font-mono">{formatCurrency(currentSavings)}</p>
+                <p className="text-xs text-muted-foreground">From linked accounts</p>
+              </div>
+            </div>
+
+            <div className="pt-4 space-y-3">
+              <Button type="submit" className="w-full gap-2" disabled={saving}>
+                <Save className="h-4 w-4" />
+                {saving ? 'Saving...' : 'Save Scenario'}
+              </Button>
+            </div>
           </form>
+        </div>
+      </div>
+
+      {/* Technical Details */}
+      <div className="mt-8 p-4 rounded-lg bg-secondary/30 border border-border">
+        <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+          <Info className="h-4 w-4" />
+          Simulation Methodology
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs text-muted-foreground">
+          <div>
+            <p className="font-medium text-foreground">Latin Hypercube Sampling</p>
+            <p>Stratified sampling ensures better coverage of probability space than pure random sampling</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Cholesky Decomposition</p>
+            <p>Maintains historical correlations between stocks, bonds, and inflation</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Stochastic Inflation</p>
+            <p>Inflation varies each year using correlated random draws (μ=3%, σ=1.5%)</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Dynamic Guardrails</p>
+            <p>Spending reduced 10% if portfolio drops below 80% of retirement start value</p>
+          </div>
         </div>
       </div>
     </DashboardLayout>
