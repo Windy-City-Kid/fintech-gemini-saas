@@ -98,6 +98,19 @@ export interface MoneyFlowParams {
   withdrawalOrder: string[]; // e.g., ['Brokerage', '401k', 'IRA', 'Roth']
 }
 
+export interface PropertyParams {
+  mortgageBalance: number;
+  mortgageInterestRate: number; // Annual rate as percent (e.g., 6.5 for 6.5%)
+  mortgageMonthlyPayment: number;
+  estimatedValue: number;
+  relocationAge?: number;
+  relocationSalePrice?: number;
+  relocationNewPurchasePrice?: number;
+  relocationNewMortgageAmount?: number;
+  relocationNewInterestRate?: number;
+  relocationNewTermMonths?: number;
+}
+
 export interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -110,6 +123,7 @@ export interface SimulationParams {
   medicare?: MedicareParams;
   household?: HouseholdParams;
   moneyFlows?: MoneyFlowParams;
+  property?: PropertyParams;
 }
 
 export interface GuardrailEvent {
