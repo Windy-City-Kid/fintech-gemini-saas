@@ -1,7 +1,9 @@
-import { Lock, Zap, TrendingUp, Building2 } from 'lucide-react';
+import { useState } from 'react';
+import { Lock, Zap, TrendingUp, Building2, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/hooks/useSubscription';
+import { cn } from '@/lib/utils';
 
 interface UpgradeModalProps {
   open: boolean;
@@ -10,9 +12,10 @@ interface UpgradeModalProps {
 
 export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
   const { startCheckout, isLoading } = useSubscription();
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
 
   const handleUpgrade = async () => {
-    await startCheckout();
+    await startCheckout(selectedPlan);
   };
 
   return (
@@ -28,7 +31,49 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 my-6">
+        {/* Plan Selection */}
+        <div className="grid grid-cols-2 gap-3 my-4">
+          <button
+            onClick={() => setSelectedPlan('monthly')}
+            className={cn(
+              "relative p-4 rounded-lg border-2 text-left transition-all",
+              selectedPlan === 'monthly'
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            )}
+          >
+            {selectedPlan === 'monthly' && (
+              <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                <Check className="h-3 w-3 text-primary-foreground" />
+              </div>
+            )}
+            <p className="font-semibold">Monthly</p>
+            <p className="text-2xl font-bold mt-1">$9<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
+          </button>
+
+          <button
+            onClick={() => setSelectedPlan('annual')}
+            className={cn(
+              "relative p-4 rounded-lg border-2 text-left transition-all",
+              selectedPlan === 'annual'
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            )}
+          >
+            {selectedPlan === 'annual' && (
+              <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                <Check className="h-3 w-3 text-primary-foreground" />
+              </div>
+            )}
+            <div className="absolute -top-2 left-3 px-2 py-0.5 bg-chart-2 text-chart-2-foreground text-xs font-medium rounded">
+              Save 17%
+            </div>
+            <p className="font-semibold">Annual</p>
+            <p className="text-2xl font-bold mt-1">$90<span className="text-sm font-normal text-muted-foreground">/yr</span></p>
+          </button>
+        </div>
+
+        <div className="space-y-3">
           <div className="flex items-start gap-4 p-4 rounded-lg bg-muted/30">
             <div className="h-10 w-10 rounded-lg bg-chart-1/10 flex items-center justify-center shrink-0">
               <Building2 className="h-5 w-5 text-chart-1" />
@@ -66,7 +111,7 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 mt-4">
           <Button 
             onClick={handleUpgrade} 
             size="lg" 
@@ -74,7 +119,7 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
             disabled={isLoading}
           >
             <Zap className="h-4 w-4" />
-            Upgrade to Pro
+            {selectedPlan === 'annual' ? 'Upgrade to Pro (Annual)' : 'Upgrade to Pro (Monthly)'}
           </Button>
           <Button 
             variant="ghost" 

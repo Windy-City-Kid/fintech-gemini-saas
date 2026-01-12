@@ -55,7 +55,7 @@ export function AppSidebar() {
       {!isLoading && !isPro && (
         <div className="px-4 pb-4">
           <button
-            onClick={startCheckout}
+            onClick={() => startCheckout()}
             className="w-full p-4 rounded-lg bg-gradient-to-r from-primary/20 to-chart-2/20 border border-primary/30 hover:border-primary/50 transition-colors text-left"
           >
             <div className="flex items-center gap-2 mb-1">
