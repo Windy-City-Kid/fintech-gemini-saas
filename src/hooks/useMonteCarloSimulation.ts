@@ -54,6 +54,19 @@ export interface RateAssumptions {
   bondReturns?: RateRange;
 }
 
+export interface SocialSecurityParams {
+  primaryPIA: number;
+  primaryClaimingAge: number;
+  primaryFRA: number;
+  spousePIA?: number;
+  spouseClaimingAge?: number;
+  spouseFRA?: number;
+  spouseCurrentAge?: number;
+  isMarried: boolean;
+  primaryLifeExpectancy: number;
+  spouseLifeExpectancy?: number;
+}
+
 export interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -62,6 +75,7 @@ export interface SimulationParams {
   monthlyRetirementSpending: number;
   allocation: SimpleAllocation;
   rateAssumptions?: RateAssumptions;
+  socialSecurity?: SocialSecurityParams;
 }
 
 export interface GuardrailEvent {
@@ -88,7 +102,8 @@ export interface SimulationResult {
     median: number;
     high: number;
   };
-  executionTimeMs: number;
+  executionTimeMs?: number;
+  ssBenefitsByAge?: number[];
 }
 
 // ============= MATH UTILITIES =============

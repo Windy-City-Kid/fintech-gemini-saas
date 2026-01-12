@@ -240,10 +240,20 @@ export type Database = {
           id: string
           inflation_rate: number
           is_active: boolean | null
+          is_married: boolean | null
           monthly_retirement_spending: number | null
+          primary_claiming_age: number | null
+          primary_fra: number | null
+          primary_life_expectancy: number | null
+          primary_pia: number | null
           retirement_age: number
           scenario_name: string
           social_security_income: number | null
+          spouse_claiming_age: number | null
+          spouse_current_age: number | null
+          spouse_fra: number | null
+          spouse_life_expectancy: number | null
+          spouse_pia: number | null
           updated_at: string
           user_id: string
         }
@@ -255,10 +265,20 @@ export type Database = {
           id?: string
           inflation_rate?: number
           is_active?: boolean | null
+          is_married?: boolean | null
           monthly_retirement_spending?: number | null
+          primary_claiming_age?: number | null
+          primary_fra?: number | null
+          primary_life_expectancy?: number | null
+          primary_pia?: number | null
           retirement_age?: number
           scenario_name?: string
           social_security_income?: number | null
+          spouse_claiming_age?: number | null
+          spouse_current_age?: number | null
+          spouse_fra?: number | null
+          spouse_life_expectancy?: number | null
+          spouse_pia?: number | null
           updated_at?: string
           user_id: string
         }
@@ -270,10 +290,20 @@ export type Database = {
           id?: string
           inflation_rate?: number
           is_active?: boolean | null
+          is_married?: boolean | null
           monthly_retirement_spending?: number | null
+          primary_claiming_age?: number | null
+          primary_fra?: number | null
+          primary_life_expectancy?: number | null
+          primary_pia?: number | null
           retirement_age?: number
           scenario_name?: string
           social_security_income?: number | null
+          spouse_claiming_age?: number | null
+          spouse_current_age?: number | null
+          spouse_fra?: number | null
+          spouse_life_expectancy?: number | null
+          spouse_pia?: number | null
           updated_at?: string
           user_id?: string
         }

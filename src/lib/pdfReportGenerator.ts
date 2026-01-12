@@ -33,7 +33,7 @@ interface SimulationResultData {
     median: number;
     high: number;
   };
-  executionTimeMs: number;
+  executionTimeMs?: number;
 }
 
 export interface ReportData {
