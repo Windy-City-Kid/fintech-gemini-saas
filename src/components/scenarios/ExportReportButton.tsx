@@ -37,7 +37,7 @@ interface SimulationData {
     median: number;
     high: number;
   };
-  executionTimeMs: number;
+  executionTimeMs?: number;
 }
 
 interface ExportReportButtonProps {
