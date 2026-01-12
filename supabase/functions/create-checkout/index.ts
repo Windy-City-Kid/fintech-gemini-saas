@@ -73,12 +73,27 @@ serve(async (req) => {
     const successUrl = `${returnUrl || "https://lovable.dev"}/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${returnUrl || "https://lovable.dev"}/`;
 
+    // Look up price by lookup_key (server-side only for security)
+    const prices = await stripe.prices.list({
+      lookup_keys: ["retire_pro_monthly"],
+      active: true,
+      limit: 1,
+    });
+
+    if (prices.data.length === 0) {
+      console.error("No price found with lookup key 'retire_pro_monthly'");
+      throw new Error("Subscription price not configured");
+    }
+
+    const priceId = prices.data[0].id;
+    console.log("Found price via lookup key:", priceId);
+
     // Create checkout session with Pro tier price
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
         {
-          price: "price_1Sop7lPJ4Yc7uJhKPmpk2ZqB", // Pro tier monthly subscription
+          price: priceId,
           quantity: 1,
         },
       ],
