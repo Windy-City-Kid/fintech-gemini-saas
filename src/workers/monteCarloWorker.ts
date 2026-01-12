@@ -25,6 +25,7 @@ interface RateAssumptions {
   stockReturns?: RateRange;
   bondReturns?: RateRange;
   ssCola?: RateRange; // Social Security COLA (CPI-W based)
+  medicalInflation?: RateRange; // Medical inflation for Medicare costs
 }
 
 interface SocialSecurityParams {
@@ -40,6 +41,13 @@ interface SocialSecurityParams {
   spouseLifeExpectancy?: number;
 }
 
+interface MedicareParams {
+  enabled: boolean;
+  pensionIncome: number;        // Annual pension income
+  investmentIncome: number;     // Expected investment income
+  estimatedIRABalance: number;  // IRA/401k balance for RMD calculations
+}
+
 interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -49,6 +57,7 @@ interface SimulationParams {
   allocation: SimpleAllocation;
   rateAssumptions?: RateAssumptions;
   socialSecurity?: SocialSecurityParams;
+  medicare?: MedicareParams;
 }
 
 interface GuardrailEvent {
@@ -76,7 +85,83 @@ interface SimulationResult {
     high: number;
   };
   executionTimeMs: number;
-  ssBenefitsByAge?: number[]; // Social Security benefits by simulation year
+  ssBenefitsByAge?: number[];
+  medicareCostsByAge?: number[];
+  irmaaYears?: number[]; // Ages where IRMAA surcharge applies
+}
+
+// ============= MEDICARE & IRMAA CONSTANTS =============
+
+const MEDICARE_PART_B_STANDARD = 202.90;
+const MEDICARE_PART_D_BASE = 35.00;
+const MEDICAL_INFLATION_DEFAULT = 0.0336; // 3.36% historical
+
+interface IRMAABracket {
+  singleMin: number;
+  singleMax: number;
+  jointMin: number;
+  jointMax: number;
+  partBMonthly: number;
+  partDSurcharge: number;
+}
+
+const IRMAA_BRACKETS: IRMAABracket[] = [
+  { singleMin: 0, singleMax: 109000, jointMin: 0, jointMax: 218000, partBMonthly: 202.90, partDSurcharge: 0 },
+  { singleMin: 109000, singleMax: 137000, jointMin: 218000, jointMax: 274000, partBMonthly: 284.10, partDSurcharge: 13.70 },
+  { singleMin: 137000, singleMax: 171000, jointMin: 274000, jointMax: 342000, partBMonthly: 405.80, partDSurcharge: 35.30 },
+  { singleMin: 171000, singleMax: 205000, jointMin: 342000, jointMax: 410000, partBMonthly: 527.50, partDSurcharge: 57.00 },
+  { singleMin: 205000, singleMax: 500000, jointMin: 410000, jointMax: 750000, partBMonthly: 649.20, partDSurcharge: 78.60 },
+  { singleMin: 500000, singleMax: Infinity, jointMin: 750000, jointMax: Infinity, partBMonthly: 678.00, partDSurcharge: 85.00 },
+];
+
+// RMD divisors (simplified IRS Uniform Lifetime Table)
+const RMD_DIVISORS: Record<number, number> = {
+  72: 27.4, 73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1,
+  80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2, 87: 14.4,
+  88: 13.7, 89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1, 94: 9.5, 95: 8.9,
+};
+
+function calculateRMD(age: number, iraBalance: number): number {
+  if (age < 73) return 0;
+  const divisor = RMD_DIVISORS[age] || RMD_DIVISORS[95] || 8.9;
+  return iraBalance / divisor;
+}
+
+function calculateMAGI(
+  ssIncome: number,
+  pensionIncome: number,
+  rmdAmount: number,
+  investmentIncome: number
+): number {
+  return (ssIncome * 0.85) + pensionIncome + rmdAmount + investmentIncome;
+}
+
+function calculateMedicareCost(
+  magi: number,
+  isMarried: boolean,
+  yearsSince2026: number,
+  medicalInflationRate: number
+): { annualCost: number; hasIRMAA: boolean } {
+  let bracket = IRMAA_BRACKETS[0];
+  
+  for (const b of IRMAA_BRACKETS) {
+    const min = isMarried ? b.jointMin : b.singleMin;
+    const max = isMarried ? b.jointMax : b.singleMax;
+    if (magi >= min && magi < max) {
+      bracket = b;
+      break;
+    }
+    if (magi >= max) bracket = b;
+  }
+  
+  const monthlyTotal = bracket.partBMonthly + MEDICARE_PART_D_BASE + bracket.partDSurcharge;
+  const annualBase = monthlyTotal * 12;
+  const inflatedCost = annualBase * Math.pow(1 + medicalInflationRate, yearsSince2026);
+  
+  return {
+    annualCost: inflatedCost,
+    hasIRMAA: bracket.partBMonthly > MEDICARE_PART_B_STANDARD,
+  };
 }
 
 // ============= PARAMETERS =============
@@ -381,6 +466,8 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   const guardrailByYear = new Uint16Array(retirementYears + 1);
   const firstYearInflations = new Float64Array(iterations);
   const ssBenefitTotals = new Float64Array(yearsToSimulate + 1);
+  const medicareCostTotals = new Float64Array(yearsToSimulate + 1);
+  const irmaaYearSet = new Set<number>();
   
   // Normalize allocation
   const total = params.allocation.stocks + params.allocation.bonds + params.allocation.cash;
@@ -399,6 +486,11 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   const colaRate = params.rateAssumptions?.ssCola
     ? (params.rateAssumptions.ssCola.optimistic + params.rateAssumptions.ssCola.pessimistic) / 2
     : 0.0254; // 2.54% historical CPI-W
+  
+  // Get medical inflation rate from assumptions or use historical average
+  const medicalInflationRate = params.rateAssumptions?.medicalInflation
+    ? (params.rateAssumptions.medicalInflation.optimistic + params.rateAssumptions.medicalInflation.pessimistic) / 2
+    : MEDICAL_INFLATION_DEFAULT;
   
   for (let iter = 0; iter < iterations; iter++) {
     let balance = params.currentSavings;
@@ -470,6 +562,34 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
         ssBenefitTotals[year + 1] += ssIncome;
       }
       
+      // Calculate Medicare costs with IRMAA (age 65+)
+      let medicareCost = 0;
+      if (age >= 65 && params.medicare?.enabled) {
+        // Calculate MAGI for IRMAA determination
+        const projectedIRABalance = params.medicare.estimatedIRABalance * Math.pow(1.05, year);
+        const rmdAmount = calculateRMD(age, projectedIRABalance);
+        const inflatedPension = params.medicare.pensionIncome * Math.pow(1.02, year);
+        const inflatedInvestment = params.medicare.investmentIncome * Math.pow(1.03, year);
+        
+        const magi = calculateMAGI(
+          ssIncome,
+          inflatedPension,
+          rmdAmount,
+          inflatedInvestment
+        );
+        
+        const isMarried = params.socialSecurity?.isMarried || false;
+        const yearsSince2026 = Math.max(0, year);
+        const medicareCostResult = calculateMedicareCost(magi, isMarried, yearsSince2026, medicalInflationRate);
+        
+        medicareCost = medicareCostResult.annualCost;
+        medicareCostTotals[year + 1] += medicareCost;
+        
+        if (medicareCostResult.hasIRMAA) {
+          irmaaYearSet.add(age);
+        }
+      }
+      
       if (!isRetired) {
         balance = balance * (1 + portfolioReturn) + params.annualContribution;
       } else {
@@ -477,9 +597,12 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
           retirementStartBalance = balance;
         }
         
-        // Inflation-adjusted spending (net of SS income)
+        // Inflation-adjusted spending (net of SS income, plus Medicare costs)
         let annualSpending = params.monthlyRetirementSpending * 12 * 
           Math.pow(1 + ASSET_PARAMS.inflation.mean, yearInRetirement);
+        
+        // Add Medicare costs to spending
+        annualSpending += medicareCost;
         
         // Subtract Social Security income from required portfolio withdrawals
         const netWithdrawal = Math.max(0, annualSpending - ssIncome);
@@ -494,8 +617,8 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
         }
         
         if (guardrailActive) {
-          // 10% reduction in spending (but SS income is fixed)
-          const reducedSpending = annualSpending * 0.9;
+          // 10% reduction in spending (but SS income and Medicare are fixed)
+          const reducedSpending = (annualSpending - medicareCost) * 0.9 + medicareCost;
           const reducedNetWithdrawal = Math.max(0, reducedSpending - ssIncome);
           balance = balance * (1 + portfolioReturn) - reducedNetWithdrawal;
           
@@ -544,6 +667,12 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   // Average SS benefits by year
   const ssBenefitsByAge = Array.from(ssBenefitTotals).map(total => total / iterations);
   
+  // Average Medicare costs by year
+  const medicareCostsByAge = Array.from(medicareCostTotals).map(total => total / iterations);
+  
+  // Collect IRMAA years
+  const irmaaYears = Array.from(irmaaYearSet).sort((a, b) => a - b);
+  
   // Guardrail events
   const guardrailEvents: GuardrailEvent[] = [];
   for (let y = 1; y <= retirementYears; y++) {
@@ -573,6 +702,8 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     },
     executionTimeMs: performance.now() - startTime,
     ssBenefitsByAge,
+    medicareCostsByAge,
+    irmaaYears,
   };
 }
 

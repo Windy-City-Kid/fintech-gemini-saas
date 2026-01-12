@@ -52,6 +52,8 @@ export interface RateAssumptions {
   inflation?: RateRange;
   stockReturns?: RateRange;
   bondReturns?: RateRange;
+  ssCola?: RateRange;
+  medicalInflation?: RateRange;
 }
 
 export interface SocialSecurityParams {
@@ -67,6 +69,13 @@ export interface SocialSecurityParams {
   spouseLifeExpectancy?: number;
 }
 
+export interface MedicareParams {
+  enabled: boolean;
+  pensionIncome: number;
+  investmentIncome: number;
+  estimatedIRABalance: number;
+}
+
 export interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -76,6 +85,7 @@ export interface SimulationParams {
   allocation: SimpleAllocation;
   rateAssumptions?: RateAssumptions;
   socialSecurity?: SocialSecurityParams;
+  medicare?: MedicareParams;
 }
 
 export interface GuardrailEvent {
@@ -104,6 +114,8 @@ export interface SimulationResult {
   };
   executionTimeMs?: number;
   ssBenefitsByAge?: number[];
+  medicareCostsByAge?: number[];
+  irmaaYears?: number[];
 }
 
 // ============= MATH UTILITIES =============
