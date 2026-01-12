@@ -18,5 +18,8 @@ verify_jwt = false
 [functions.fetch-holdings]
 verify_jwt = false
 
+[functions.fetch-liabilities]
+verify_jwt = false
+
 [functions.sync-economic-data]
 verify_jwt = false

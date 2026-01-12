@@ -252,6 +252,78 @@ export type Database = {
         }
         Relationships: []
       }
+      properties: {
+        Row: {
+          created_at: string
+          estimated_value: number
+          id: string
+          is_manual_entry: boolean
+          mortgage_balance: number | null
+          mortgage_interest_rate: number | null
+          mortgage_monthly_payment: number | null
+          mortgage_start_date: string | null
+          mortgage_term_months: number | null
+          plaid_account_id: string | null
+          plaid_item_id: string | null
+          property_name: string
+          property_type: string
+          relocation_age: number | null
+          relocation_new_interest_rate: number | null
+          relocation_new_mortgage_amount: number | null
+          relocation_new_purchase_price: number | null
+          relocation_new_term_months: number | null
+          relocation_sale_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_value?: number
+          id?: string
+          is_manual_entry?: boolean
+          mortgage_balance?: number | null
+          mortgage_interest_rate?: number | null
+          mortgage_monthly_payment?: number | null
+          mortgage_start_date?: string | null
+          mortgage_term_months?: number | null
+          plaid_account_id?: string | null
+          plaid_item_id?: string | null
+          property_name?: string
+          property_type?: string
+          relocation_age?: number | null
+          relocation_new_interest_rate?: number | null
+          relocation_new_mortgage_amount?: number | null
+          relocation_new_purchase_price?: number | null
+          relocation_new_term_months?: number | null
+          relocation_sale_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          estimated_value?: number
+          id?: string
+          is_manual_entry?: boolean
+          mortgage_balance?: number | null
+          mortgage_interest_rate?: number | null
+          mortgage_monthly_payment?: number | null
+          mortgage_start_date?: string | null
+          mortgage_term_months?: number | null
+          plaid_account_id?: string | null
+          plaid_item_id?: string | null
+          property_name?: string
+          property_type?: string
+          relocation_age?: number | null
+          relocation_new_interest_rate?: number | null
+          relocation_new_mortgage_amount?: number | null
+          relocation_new_purchase_price?: number | null
+          relocation_new_term_months?: number | null
+          relocation_sale_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rate_assumptions: {
         Row: {
           category: string

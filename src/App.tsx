@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NetWorth from "./pages/NetWorth";
+import RealEstate from "./pages/RealEstate";
 import Scenarios from "./pages/Scenarios";
 import RateAssumptions from "./pages/RateAssumptions";
 import Settings from "./pages/Settings";
@@ -33,6 +34,11 @@ const App = () => (
             <Route path="/net-worth" element={
               <ProtectedRoute>
                 <NetWorth />
+              </ProtectedRoute>
+            } />
+            <Route path="/real-estate" element={
+              <ProtectedRoute>
+                <RealEstate />
               </ProtectedRoute>
             } />
             <Route path="/scenarios" element={
