@@ -194,6 +194,7 @@ export type Database = {
           historical_avg: number
           id: string
           last_updated_from_api: string | null
+          market_sentiment: number | null
           name: string
           updated_at: string
           user_id: string
@@ -207,6 +208,7 @@ export type Database = {
           historical_avg?: number
           id?: string
           last_updated_from_api?: string | null
+          market_sentiment?: number | null
           name: string
           updated_at?: string
           user_id: string
@@ -220,6 +222,7 @@ export type Database = {
           historical_avg?: number
           id?: string
           last_updated_from_api?: string | null
+          market_sentiment?: number | null
           name?: string
           updated_at?: string
           user_id?: string

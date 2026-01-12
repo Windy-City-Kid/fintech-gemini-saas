@@ -160,6 +160,7 @@ export default function Scenarios() {
     const simAllocation = convertTo3AssetAllocation(allocation);
     
     // Build rate assumptions from user settings (convert % to decimal)
+    // Includes market_sentiment (T10YIE) as simulation anchor per Boldin framework
     const userRates: RateAssumptions = {};
     
     const inflationRate = rateAssumptions.find(r => r.category === 'General' && r.name === 'Inflation');
@@ -167,6 +168,8 @@ export default function Scenarios() {
       userRates.inflation = {
         optimistic: inflationRate.user_optimistic / 100,
         pessimistic: inflationRate.user_pessimistic / 100,
+        // Market sentiment (T10YIE) anchors the center of the triangular distribution
+        marketSentiment: inflationRate.market_sentiment ? inflationRate.market_sentiment / 100 : undefined,
       };
     }
     

@@ -12,6 +12,7 @@ export interface RateAssumption {
   historical_avg: number;
   user_optimistic: number;
   user_pessimistic: number;
+  market_sentiment: number | null; // T10YIE - current market expectations for Monte Carlo anchoring
   last_updated_from_api: string | null;
   created_at: string;
   updated_at: string;
@@ -35,16 +36,16 @@ export const RATE_HISTORICAL_CONTEXT: Record<string, {
   chartData?: { period: string; value: number }[];
 }> = {
   'General-Inflation': {
-    title: '10-Year Breakeven Inflation Rate',
-    context: 'The 10-year breakeven inflation rate represents the market\'s expectation for average inflation over the next decade. It\'s derived from the difference between 10-year Treasury yields and 10-year TIPS yields. Historical average since 2003 is approximately 2.1%.',
-    source: 'Federal Reserve Economic Data (FRED)',
+    title: 'Consumer Price Index (CPI-U)',
+    context: 'The CPI-U measures the average change in prices paid by urban consumers for a basket of goods and services. The historical average from 1994-2024 is approximately 2.54%. This baseline is complemented by real-time market expectations from the 10-Year Breakeven Inflation Rate (T10YIE) to anchor Monte Carlo simulations.',
+    source: 'Bureau of Labor Statistics via FRED (CPIAUCSL & T10YIE)',
     chartData: [
       { period: '2019', value: 1.8 },
       { period: '2020', value: 1.2 },
-      { period: '2021', value: 2.4 },
-      { period: '2022', value: 2.8 },
-      { period: '2023', value: 2.3 },
-      { period: '2024', value: 2.2 },
+      { period: '2021', value: 4.7 },
+      { period: '2022', value: 8.0 },
+      { period: '2023', value: 4.1 },
+      { period: '2024', value: 2.9 },
     ]
   },
   'Medical-Healthcare Costs': {
@@ -145,13 +146,13 @@ export function useRateAssumptions(): UseRateAssumptionsReturn {
 
       // If no assumptions exist, create defaults
       if (!data || data.length === 0) {
-        const defaults: Omit<RateAssumption, 'id' | 'created_at' | 'updated_at' | 'last_updated_from_api'>[] = [
-          { user_id: user.id, category: 'General', name: 'Inflation', description: 'General price level increase based on CPI', historical_avg: 2.5, user_optimistic: 2.0, user_pessimistic: 4.0 },
-          { user_id: user.id, category: 'Medical', name: 'Healthcare Costs', description: 'Annual increase in healthcare expenses', historical_avg: 5.5, user_optimistic: 4.0, user_pessimistic: 7.0 },
-          { user_id: user.id, category: 'Social Security', name: 'COLA Adjustment', description: 'Cost of Living Adjustment for Social Security benefits', historical_avg: 2.6, user_optimistic: 2.0, user_pessimistic: 3.5 },
-          { user_id: user.id, category: 'Investment', name: 'Stock Returns', description: 'Expected annual return on equity investments', historical_avg: 7.0, user_optimistic: 8.0, user_pessimistic: 5.0 },
-          { user_id: user.id, category: 'Investment', name: 'Bond Returns', description: 'Expected annual return on fixed income investments', historical_avg: 4.0, user_optimistic: 5.0, user_pessimistic: 2.5 },
-          { user_id: user.id, category: 'Housing', name: 'Housing Inflation', description: 'Annual increase in housing-related costs', historical_avg: 3.5, user_optimistic: 2.5, user_pessimistic: 5.0 },
+        const defaults = [
+          { user_id: user.id, category: 'General', name: 'Inflation', description: 'General price level increase based on CPI', historical_avg: 2.54, user_optimistic: 2.0, user_pessimistic: 4.0, market_sentiment: null },
+          { user_id: user.id, category: 'Medical', name: 'Healthcare Costs', description: 'Annual increase in healthcare expenses', historical_avg: 5.5, user_optimistic: 4.0, user_pessimistic: 7.0, market_sentiment: null },
+          { user_id: user.id, category: 'Social Security', name: 'COLA Adjustment', description: 'Cost of Living Adjustment for Social Security benefits', historical_avg: 2.6, user_optimistic: 2.0, user_pessimistic: 3.5, market_sentiment: null },
+          { user_id: user.id, category: 'Investment', name: 'Stock Returns', description: 'Expected annual return on equity investments', historical_avg: 7.0, user_optimistic: 8.0, user_pessimistic: 5.0, market_sentiment: null },
+          { user_id: user.id, category: 'Investment', name: 'Bond Returns', description: 'Expected annual return on fixed income investments', historical_avg: 4.0, user_optimistic: 5.0, user_pessimistic: 2.5, market_sentiment: null },
+          { user_id: user.id, category: 'Housing', name: 'Housing Inflation', description: 'Annual increase in housing-related costs', historical_avg: 3.5, user_optimistic: 2.5, user_pessimistic: 5.0, market_sentiment: null },
         ];
 
         const { data: insertedData, error: insertError } = await supabase
@@ -224,7 +225,10 @@ export function useRateAssumptions(): UseRateAssumptionsReturn {
       }
 
       if (data?.success) {
-        toast.success(`Updated inflation rate to ${data.data.value}% from FRED (${data.data.date})`);
+        const cpiMsg = data.data.cpi ? `CPI-U: ${data.data.cpi.value}%` : '';
+        const marketMsg = data.data.marketSentiment ? `Market: ${data.data.marketSentiment.value}%` : '';
+        const msg = [cpiMsg, marketMsg].filter(Boolean).join(' | ');
+        toast.success(`Updated from FRED — ${msg}`);
         await fetchAssumptions();
       } else {
         throw new Error(data?.error || 'Failed to sync data');
