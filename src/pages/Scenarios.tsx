@@ -485,7 +485,8 @@ export default function Scenarios() {
       {/* Money Flows Dialog */}
       <MoneyFlowsDialog 
         open={moneyFlowsDialogOpen} 
-        onOpenChange={setMoneyFlowsDialogOpen} 
+        onOpenChange={setMoneyFlowsDialogOpen}
+        currentAge={formValues.current_age}
       />
     </DashboardLayout>
   );

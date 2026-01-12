@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, LinkIcon, Percent, DollarSign } from 'lucide-react';
+import { Plus, Trash2, LinkIcon, Percent, DollarSign, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { IRSLimitWarning, ContributionLimitsSummary } from './IRSLimitWarning';
+import { validateContribution, getContributionLimit } from '@/lib/irsLimits2026';
 
 interface MoneyFlow {
   id: string;
@@ -39,11 +41,20 @@ interface MoneyFlow {
 interface MoneyFlowsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  currentAge?: number;
+  spouseAge?: number;
+  isHighEarner?: boolean;
 }
 
-const ACCOUNT_TYPES = ['401k', 'IRA', 'Roth', 'Brokerage'];
+const ACCOUNT_TYPES = ['401k', '403b', 'IRA', 'Roth', 'HSA', 'Brokerage'];
 
-export function MoneyFlowsDialog({ open, onOpenChange }: MoneyFlowsDialogProps) {
+export function MoneyFlowsDialog({ 
+  open, 
+  onOpenChange, 
+  currentAge = 35, 
+  spouseAge,
+  isHighEarner = false 
+}: MoneyFlowsDialogProps) {
   const { user } = useAuth();
   const [flows, setFlows] = useState<MoneyFlow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,6 +203,13 @@ export function MoneyFlowsDialog({ open, onOpenChange }: MoneyFlowsDialogProps) 
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* 2026 IRS Limits Summary */}
+          <ContributionLimitsSummary 
+            age={currentAge} 
+            spouseAge={spouseAge}
+            isHighEarner={isHighEarner}
+          />
+
           {/* Recurring Contributions */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -308,6 +326,14 @@ export function MoneyFlowsDialog({ open, onOpenChange }: MoneyFlowsDialogProps) 
                     </div>
                   </div>
                 )}
+
+                {/* IRS Limit Warning for this contribution */}
+                <IRSLimitWarning
+                  accountType={flow.account_type}
+                  plannedAmount={Number(flow.annual_amount)}
+                  age={currentAge}
+                  isHighEarner={isHighEarner}
+                />
               </div>
             ))}
           </div>
