@@ -70,6 +70,19 @@ interface MoneyFlowParams {
   withdrawalOrder: string[]; // e.g., ['Brokerage', '401k', 'IRA', 'Roth']
 }
 
+interface PropertyParams {
+  mortgageBalance: number;
+  mortgageInterestRate: number; // Annual rate as percent (e.g., 6.5 for 6.5%)
+  mortgageMonthlyPayment: number;
+  estimatedValue: number;
+  relocationAge?: number;
+  relocationSalePrice?: number;
+  relocationNewPurchasePrice?: number;
+  relocationNewMortgageAmount?: number;
+  relocationNewInterestRate?: number;
+  relocationNewTermMonths?: number;
+}
+
 interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -82,6 +95,7 @@ interface SimulationParams {
   medicare?: MedicareParams;
   household?: HouseholdParams;
   moneyFlows?: MoneyFlowParams;
+  property?: PropertyParams;
 }
 
 interface GuardrailEvent {
@@ -588,6 +602,13 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     ? (params.rateAssumptions.medicalInflation.optimistic + params.rateAssumptions.medicalInflation.pessimistic) / 2
     : MEDICAL_INFLATION_DEFAULT;
   
+  // Initialize property/mortgage tracking
+  let mortgageBalance = params.property?.mortgageBalance || 0;
+  let mortgageMonthlyRate = (params.property?.mortgageInterestRate || 0) / 100 / 12;
+  let mortgageMonthlyPayment = params.property?.mortgageMonthlyPayment || 0;
+  let homeValue = params.property?.estimatedValue || 0;
+  const homeAppreciationRate = 0.03; // 3% annual appreciation
+  
   for (let iter = 0; iter < iterations; iter++) {
     let balance = params.currentSavings;
     allBalances[iter * (yearsToSimulate + 1)] = balance;
@@ -595,6 +616,12 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     let guardrailActive = false;
     let iterGuardrailCount = 0;
     let retirementStartBalance = 0;
+    
+    // Reset mortgage state for each iteration
+    let iterMortgageBalance = mortgageBalance;
+    let iterMortgageMonthlyRate = mortgageMonthlyRate;
+    let iterMortgageMonthlyPayment = mortgageMonthlyPayment;
+    let iterHomeValue = homeValue;
     
     // Simulate death for survivor benefit (simplified: use life expectancy)
     // For each trial, randomize death year around life expectancy
@@ -684,6 +711,51 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
         if (medicareCostResult.hasIRMAA) {
           irmaaYearSet.add(age);
         }
+      }
+      
+      // ============= MORTGAGE AMORTIZATION =============
+      // Pay down mortgage principal each month based on interest rate
+      if (iterMortgageBalance > 0 && iterMortgageMonthlyPayment > 0) {
+        // Calculate monthly amortization (12 payments per year)
+        for (let month = 0; month < 12; month++) {
+          if (iterMortgageBalance <= 0) break;
+          
+          const monthlyInterest = iterMortgageBalance * iterMortgageMonthlyRate;
+          const principalPayment = Math.min(
+            iterMortgageMonthlyPayment - monthlyInterest,
+            iterMortgageBalance
+          );
+          
+          iterMortgageBalance = Math.max(0, iterMortgageBalance - principalPayment);
+        }
+      }
+      
+      // Appreciate home value
+      iterHomeValue *= (1 + homeAppreciationRate);
+      
+      // Handle relocation/downsizing
+      if (params.property?.relocationAge && age === params.property.relocationAge) {
+        // Sell current home
+        const saleProceeds = (params.property.relocationSalePrice || iterHomeValue) - iterMortgageBalance;
+        
+        // Buy new home
+        const newPurchasePrice = params.property.relocationNewPurchasePrice || 0;
+        iterHomeValue = newPurchasePrice;
+        iterMortgageBalance = params.property.relocationNewMortgageAmount || 0;
+        iterMortgageMonthlyRate = (params.property.relocationNewInterestRate || 0) / 100 / 12;
+        
+        // Calculate new monthly payment if we have a new mortgage
+        if (iterMortgageBalance > 0 && iterMortgageMonthlyRate > 0 && params.property.relocationNewTermMonths) {
+          const n = params.property.relocationNewTermMonths;
+          const r = iterMortgageMonthlyRate;
+          iterMortgageMonthlyPayment = iterMortgageBalance * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+        } else {
+          iterMortgageMonthlyPayment = 0;
+        }
+        
+        // Add net proceeds to portfolio (or reduce if buying up)
+        const netProceeds = saleProceeds - (newPurchasePrice - iterMortgageBalance);
+        balance += netProceeds;
       }
       
       if (!isRetired) {

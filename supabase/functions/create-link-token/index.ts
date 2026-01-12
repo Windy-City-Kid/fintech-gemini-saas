@@ -73,7 +73,7 @@ serve(async (req) => {
           client_user_id: user.id, // Use Supabase user ID
         },
         client_name: "WealthPlan Pro",
-        products: ["auth", "transactions", "investments"],
+        products: ["auth", "transactions", "investments", "liabilities"],
         country_codes: ["US"],
         language: "en",
         redirect_uri: "https://joyful-savings-dash.lovable.app",
