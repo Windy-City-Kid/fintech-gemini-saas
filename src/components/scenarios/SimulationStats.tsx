@@ -90,7 +90,7 @@ export function SimulationStats({ result, retirementAge, currentAge }: Simulatio
         </p>
       </div>
 
-      {/* Guardrail Info */}
+      {/* Inflation & Performance */}
       <div className="stat-card">
         <div className="flex items-center gap-2 mb-2">
           <div className="h-8 w-8 rounded-lg bg-secondary/50 flex items-center justify-center">
@@ -102,7 +102,7 @@ export function SimulationStats({ result, retirementAge, currentAge }: Simulatio
           {result.inflationScenarios.low.toFixed(1)}-{result.inflationScenarios.high.toFixed(1)}%
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Stochastic inflation (10th-90th)
+          Stochastic (10th-90th) • {result.executionTimeMs?.toFixed(0) || '?'}ms
         </p>
       </div>
     </div>
