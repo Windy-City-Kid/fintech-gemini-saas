@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -8,20 +8,41 @@ interface SubscriptionState {
   plan: 'free' | 'pro';
 }
 
+// Cache subscription status to prevent excessive API calls
+let cachedState: SubscriptionState | null = null;
+let lastCheckTime = 0;
+const CACHE_DURATION = 60000; // 1 minute cache
+
 export function useSubscription() {
   const { user, session } = useAuth();
-  const [state, setState] = useState<SubscriptionState>({
-    isLoading: true,
-    isPro: false,
-    plan: 'free',
-  });
+  const [state, setState] = useState<SubscriptionState>(
+    cachedState || {
+      isLoading: true,
+      isPro: false,
+      plan: 'free',
+    }
+  );
+  const isChecking = useRef(false);
 
   useEffect(() => {
     const checkSubscription = async () => {
       if (!user || !session) {
-        setState({ isLoading: false, isPro: false, plan: 'free' });
+        const newState = { isLoading: false, isPro: false, plan: 'free' as const };
+        setState(newState);
+        cachedState = newState;
         return;
       }
+
+      // Use cached result if available and not expired
+      const now = Date.now();
+      if (cachedState && now - lastCheckTime < CACHE_DURATION) {
+        setState(cachedState);
+        return;
+      }
+
+      // Prevent concurrent checks
+      if (isChecking.current) return;
+      isChecking.current = true;
 
       try {
         const { data, error } = await supabase.functions.invoke('check-subscription', {
@@ -32,21 +53,28 @@ export function useSubscription() {
 
         if (error) throw error;
 
-        setState({
+        const newState = {
           isLoading: false,
           isPro: data.subscribed,
           plan: data.plan,
-        });
+        };
+        setState(newState);
+        cachedState = newState;
+        lastCheckTime = Date.now();
       } catch (error) {
         console.error('Error checking subscription:', error);
-        setState({ isLoading: false, isPro: false, plan: 'free' });
+        const newState = { isLoading: false, isPro: false, plan: 'free' as const };
+        setState(newState);
+        cachedState = newState;
+      } finally {
+        isChecking.current = false;
       }
     };
 
     checkSubscription();
   }, [user, session]);
 
-  const startCheckout = async () => {
+  const startCheckout = useCallback(async () => {
     if (!session) return;
 
     try {
@@ -60,12 +88,13 @@ export function useSubscription() {
       if (error) throw error;
 
       if (data.url) {
-        window.location.href = data.url;
+        // Open in new tab to prevent app from hanging
+        window.open(data.url, '_blank');
       }
     } catch (error) {
       console.error('Error starting checkout:', error);
     }
-  };
+  }, [session]);
 
   return { ...state, startCheckout };
 }
