@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Calculator, TrendingUp, Calendar, DollarSign, Percent, Save, Play, Info } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, DollarSign, Save, Play, Info } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,10 @@ import { toast } from 'sonner';
 import { runMonteCarloSimulation, SimulationResult, SimulationParams } from '@/hooks/useMonteCarloSimulation';
 import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
 import { SimulationStats } from '@/components/scenarios/SimulationStats';
+import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
+import { usePortfolioData } from '@/hooks/usePortfolioData';
+import { ASSET_CLASS_LABELS, ASSET_CLASS_COLORS } from '@/lib/correlationMatrix';
+import { AssetAllocation } from '@/lib/assetClassification';
 
 const scenarioSchema = z.object({
   scenario_name: z.string().min(1),
@@ -39,22 +43,16 @@ interface Scenario {
   monthly_retirement_spending: number;
 }
 
-interface HoldingsAllocation {
-  Stocks: number;
-  Bonds: number;
-  Cash: number;
-  Other: number;
-}
-
 export default function Scenarios() {
   const { user } = useAuth();
   const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [accounts, setAccounts] = useState<{ current_balance: number }[]>([]);
-  const [holdings, setHoldings] = useState<HoldingsAllocation>({ Stocks: 0, Bonds: 0, Cash: 0, Other: 0 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  
+  // Use the portfolio data bridge hook
+  const portfolio = usePortfolioData();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ScenarioFormData>({
     resolver: zodResolver(scenarioSchema),
@@ -72,53 +70,34 @@ export default function Scenarios() {
   const formValues = watch();
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchScenario = async () => {
       if (!user) return;
       
       try {
-        const [scenarioRes, accountsRes, holdingsRes] = await Promise.all([
-          supabase.from('scenarios').select('*').eq('is_active', true).single(),
-          supabase.from('accounts').select('current_balance'),
-          supabase.from('holdings').select('asset_class, market_value'),
-        ]);
+        const { data } = await supabase
+          .from('scenarios')
+          .select('*')
+          .eq('is_active', true)
+          .single();
 
-        if (scenarioRes.data) {
-          const s = scenarioRes.data;
-          setScenario(s);
-          setValue('scenario_name', s.scenario_name);
-          setValue('current_age', s.current_age || 35);
-          setValue('retirement_age', s.retirement_age);
-          setValue('annual_contribution', Number(s.annual_contribution));
-          setValue('inflation_rate', Number(s.inflation_rate));
-          setValue('expected_return', Number(s.expected_return));
-          setValue('monthly_retirement_spending', Number(s.monthly_retirement_spending));
-        }
-
-        if (accountsRes.data) {
-          setAccounts(accountsRes.data);
-        }
-
-        // Calculate holdings allocation
-        if (holdingsRes.data && holdingsRes.data.length > 0) {
-          const allocation = holdingsRes.data.reduce((acc, h) => {
-            const key = h.asset_class as keyof HoldingsAllocation;
-            if (key in acc) {
-              acc[key] += Number(h.market_value);
-            } else {
-              acc.Other += Number(h.market_value);
-            }
-            return acc;
-          }, { Stocks: 0, Bonds: 0, Cash: 0, Other: 0 });
-          setHoldings(allocation);
+        if (data) {
+          setScenario(data);
+          setValue('scenario_name', data.scenario_name);
+          setValue('current_age', data.current_age || 35);
+          setValue('retirement_age', data.retirement_age);
+          setValue('annual_contribution', Number(data.annual_contribution));
+          setValue('inflation_rate', Number(data.inflation_rate));
+          setValue('expected_return', Number(data.expected_return));
+          setValue('monthly_retirement_spending', Number(data.monthly_retirement_spending));
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching scenario:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchScenario();
   }, [user, setValue]);
 
   const onSubmit = async (data: ScenarioFormData) => {
@@ -148,18 +127,13 @@ export default function Scenarios() {
     }
   };
 
-  // Calculate current savings and allocation percentages
-  const currentSavings = accounts.reduce((sum, acc) => sum + Number(acc.current_balance), 0);
-  const totalHoldings = holdings.Stocks + holdings.Bonds + holdings.Cash + holdings.Other;
-  
-  // Use actual holdings allocation or default to 60/40 if no holdings data
-  const stockAllocation = totalHoldings > 0 ? holdings.Stocks / totalHoldings : 0.6;
-  const bondAllocation = totalHoldings > 0 ? (holdings.Bonds + holdings.Cash) / totalHoldings : 0.4;
+  // Use portfolio data from the bridge hook
+  const currentSavings = portfolio.totalBalance;
+  const allocation = portfolio.allocationPercentages;
 
   const runSimulation = useCallback(() => {
     setSimulating(true);
     
-    // Use setTimeout to allow UI to update before heavy computation
     setTimeout(() => {
       try {
         const params: SimulationParams = {
@@ -170,8 +144,7 @@ export default function Scenarios() {
           monthlyRetirementSpending: formValues.monthly_retirement_spending,
           expectedReturn: formValues.expected_return,
           inflationRate: formValues.inflation_rate,
-          stockAllocation,
-          bondAllocation,
+          allocation,
         };
         
         const result = runMonteCarloSimulation(params, 5000);
@@ -186,7 +159,7 @@ export default function Scenarios() {
         setSimulating(false);
       }
     }, 50);
-  }, [formValues, currentSavings, stockAllocation, bondAllocation]);
+  }, [formValues, currentSavings, allocation]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -309,27 +282,27 @@ export default function Scenarios() {
             </div>
           </div>
 
-          {/* Portfolio Allocation Display */}
+          {/* Portfolio Allocation Display - 5 Asset Classes */}
           <div className="mb-6 p-3 rounded-lg bg-secondary/30 border border-border">
-            <p className="text-xs text-muted-foreground mb-2">Current Portfolio Mix</p>
-            <div className="flex items-center gap-3">
+            <p className="text-xs text-muted-foreground mb-2">Portfolio Allocation (5-Asset)</p>
+            <div className="flex items-center gap-3 mb-2">
               <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex">
-                <div 
-                  className="h-full bg-primary" 
-                  style={{ width: `${stockAllocation * 100}%` }}
-                />
-                <div 
-                  className="h-full bg-blue-500" 
-                  style={{ width: `${bondAllocation * 100}%` }}
-                />
+                <div className="h-full" style={{ width: `${allocation.domesticStocks * 100}%`, backgroundColor: ASSET_CLASS_COLORS.domesticStocks }} />
+                <div className="h-full" style={{ width: `${allocation.intlStocks * 100}%`, backgroundColor: ASSET_CLASS_COLORS.intlStocks }} />
+                <div className="h-full" style={{ width: `${allocation.bonds * 100}%`, backgroundColor: ASSET_CLASS_COLORS.bonds }} />
+                <div className="h-full" style={{ width: `${allocation.realEstate * 100}%`, backgroundColor: ASSET_CLASS_COLORS.realEstate }} />
+                <div className="h-full" style={{ width: `${allocation.cash * 100}%`, backgroundColor: ASSET_CLASS_COLORS.cash }} />
               </div>
-              <span className="text-xs font-mono text-muted-foreground">
-                {(stockAllocation * 100).toFixed(0)}/{(bondAllocation * 100).toFixed(0)}
-              </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Stocks / Bonds (from linked accounts)
-            </p>
+            <div className="grid grid-cols-2 gap-1 text-xs">
+              {Object.entries(allocation).map(([key, value]) => (
+                <div key={key} className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ASSET_CLASS_COLORS[key as keyof AssetAllocation] }} />
+                  <span className="text-muted-foreground">{ASSET_CLASS_LABELS[key as keyof AssetAllocation]}:</span>
+                  <span className="font-mono">{(value * 100).toFixed(0)}%</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -401,28 +374,41 @@ export default function Scenarios() {
         </div>
       </div>
 
+      {/* Guardrail Stress Test Chart */}
+      <div className="mt-8">
+        <GuardrailChart 
+          guardrailEvents={simulationResult?.guardrailEvents || []}
+          totalIterations={5000}
+          loading={simulating}
+        />
+      </div>
+
       {/* Technical Details */}
       <div className="mt-8 p-4 rounded-lg bg-secondary/30 border border-border">
         <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
           <Info className="h-4 w-4" />
           Simulation Methodology
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs text-muted-foreground">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs text-muted-foreground">
           <div>
             <p className="font-medium text-foreground">Latin Hypercube Sampling</p>
-            <p>Stratified sampling ensures better coverage of probability space than pure random sampling</p>
+            <p>5,000 stratified iterations for better coverage</p>
           </div>
           <div>
-            <p className="font-medium text-foreground">Cholesky Decomposition</p>
-            <p>Maintains historical correlations between stocks, bonds, and inflation</p>
+            <p className="font-medium text-foreground">5-Asset Cholesky Matrix</p>
+            <p>Correlated returns: US/Intl Stocks, Bonds, REITs, Cash</p>
           </div>
           <div>
             <p className="font-medium text-foreground">Stochastic Inflation</p>
-            <p>Inflation varies each year using correlated random draws (μ=3%, σ=1.5%)</p>
+            <p>Correlated with bonds/cash (μ=3%, σ=1.5%)</p>
           </div>
           <div>
             <p className="font-medium text-foreground">Dynamic Guardrails</p>
-            <p>Spending reduced 10% if portfolio drops below 80% of retirement start value</p>
+            <p>10% spending cut if portfolio &lt;80% of start</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Input Bridge</p>
+            <p>Allocation from linked accounts via ticker mapping</p>
           </div>
         </div>
       </div>
