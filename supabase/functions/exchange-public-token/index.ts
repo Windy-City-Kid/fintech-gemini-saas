@@ -154,6 +154,8 @@ serve(async (req) => {
           current_balance: account.balances?.current || 0,
           plaid_access_token: accessToken, // Stored securely, never exposed to frontend
           plaid_item_id: itemId, // Store item_id for webhook matching
+          plaid_account_id: account.account_id, // Store Plaid account ID for holdings sync
+          account_mask: account.mask || null, // Store last 4 digits
           is_manual_entry: false,
           last_synced_at: new Date().toISOString(),
         })
@@ -169,6 +171,7 @@ serve(async (req) => {
           institution_name: savedAccount.institution_name,
           account_type: savedAccount.account_type,
           current_balance: savedAccount.current_balance,
+          account_mask: savedAccount.account_mask,
         });
       }
     }
