@@ -17,6 +17,8 @@ import { useMonteCarloWorker } from '@/hooks/useMonteCarloWorker';
 import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
 import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
+import { ResilienceMeter } from '@/components/scenarios/ResilienceMeter';
+import { ExportReportButton } from '@/components/scenarios/ExportReportButton';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_COLORS } from '@/lib/correlationMatrix';
 import { AssetAllocation } from '@/lib/assetClassification';
@@ -184,27 +186,39 @@ export default function Scenarios() {
               5,000 iterations using Latin Hypercube Sampling with correlated asset returns
             </p>
           </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={runSimulation} 
-                  disabled={simulating}
-                  size="lg"
-                  className="gap-2"
-                >
-                  <Play className="h-5 w-5" />
-                  {simulating ? 'Running...' : 'Run Simulation'}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-xs">
-                <p className="text-sm">
-                  Uses Latin Hypercube Sampling for stratified coverage, Cholesky decomposition 
-                  for correlated stock/bond returns, stochastic inflation, and dynamic spending guardrails.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-3">
+            <ExportReportButton
+              simulationResult={simulationResult}
+              userName={user?.user_metadata?.full_name || user?.email || 'Investor'}
+              currentAge={formValues.current_age}
+              retirementAge={formValues.retirement_age}
+              currentSavings={currentSavings}
+              monthlySpending={formValues.monthly_retirement_spending}
+              allocation={convertTo3AssetAllocation(allocation)}
+              disabled={simulating}
+            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={runSimulation} 
+                    disabled={simulating}
+                    size="lg"
+                    className="gap-2"
+                  >
+                    <Play className="h-5 w-5" />
+                    {simulating ? 'Running...' : 'Run Simulation'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-sm">
+                    Uses Latin Hypercube Sampling for stratified coverage, Cholesky decomposition 
+                    for correlated stock/bond returns, stochastic inflation, and dynamic spending guardrails.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
 
@@ -217,9 +231,9 @@ export default function Scenarios() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Monte Carlo Chart */}
-        <div className="lg:col-span-2 stat-card">
+        <div className="lg:col-span-2 stat-card" id="fan-chart-container">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -274,6 +288,12 @@ export default function Scenarios() {
             </div>
           )}
         </div>
+
+        {/* Resilience Meter */}
+        <ResilienceMeter 
+          successRate={simulationResult?.successRate || 0} 
+          loading={simulating} 
+        />
 
         {/* Assumptions Form */}
         <div className="stat-card">
