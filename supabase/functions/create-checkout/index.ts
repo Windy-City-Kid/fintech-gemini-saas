@@ -93,6 +93,7 @@ serve(async (req) => {
       },
       customer_update: {
         address: "auto",
+        name: "auto",
       },
       billing_address_collection: "required",
       metadata: {
