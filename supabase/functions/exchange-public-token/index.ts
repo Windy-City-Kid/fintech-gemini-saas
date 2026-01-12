@@ -139,8 +139,10 @@ serve(async (req) => {
              'Other';
     };
 
-    // Save each account to database
+    // Save each account to database (without access token - stored separately)
     const savedAccounts = [];
+    let firstAccountId: string | null = null;
+
     for (const account of accountsData.accounts) {
       const accountType = mapAccountType(account.type, account.subtype);
       
@@ -152,10 +154,9 @@ serve(async (req) => {
           institution_name: institution?.name || 'Connected Institution',
           account_type: accountType,
           current_balance: account.balances?.current || 0,
-          plaid_access_token: accessToken, // Stored securely, never exposed to frontend
-          plaid_item_id: itemId, // Store item_id for webhook matching
-          plaid_account_id: account.account_id, // Store Plaid account ID for holdings sync
-          account_mask: account.mask || null, // Store last 4 digits
+          plaid_item_id: itemId,
+          plaid_account_id: account.account_id,
+          account_mask: account.mask || null,
           is_manual_entry: false,
           last_synced_at: new Date().toISOString(),
         })
@@ -165,6 +166,9 @@ serve(async (req) => {
       if (saveError) {
         console.error("Error saving account:", saveError);
       } else {
+        if (!firstAccountId) {
+          firstAccountId = savedAccount.id;
+        }
         savedAccounts.push({
           id: savedAccount.id,
           account_name: savedAccount.account_name,
@@ -177,6 +181,25 @@ serve(async (req) => {
     }
 
     console.log("Saved", savedAccounts.length, "accounts to database");
+
+    // Store access token in secure plaid_tokens table (only accessible by service_role)
+    if (firstAccountId && accessToken) {
+      const { error: tokenError } = await supabaseAdmin
+        .from('plaid_tokens')
+        .insert({
+          user_id: user.id,
+          account_id: firstAccountId,
+          plaid_item_id: itemId,
+          access_token: accessToken,
+        });
+
+      if (tokenError) {
+        console.error("Error saving access token to secure storage:", tokenError);
+        // Don't fail the request - accounts are saved, token storage failed
+      } else {
+        console.log("Access token stored securely in plaid_tokens table");
+      }
+    }
 
     // Return success - NEVER include access_token in response
     return new Response(

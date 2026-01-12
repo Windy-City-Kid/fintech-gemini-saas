@@ -25,7 +25,6 @@ export type Database = {
           institution_name: string
           is_manual_entry: boolean | null
           last_synced_at: string | null
-          plaid_access_token: string | null
           plaid_account_id: string | null
           plaid_item_id: string | null
           updated_at: string
@@ -41,7 +40,6 @@ export type Database = {
           institution_name: string
           is_manual_entry?: boolean | null
           last_synced_at?: string | null
-          plaid_access_token?: string | null
           plaid_account_id?: string | null
           plaid_item_id?: string | null
           updated_at?: string
@@ -57,7 +55,6 @@ export type Database = {
           institution_name?: string
           is_manual_entry?: boolean | null
           last_synced_at?: string | null
-          plaid_access_token?: string | null
           plaid_account_id?: string | null
           plaid_item_id?: string | null
           updated_at?: string
@@ -111,6 +108,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "holdings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plaid_tokens: {
+        Row: {
+          access_token: string
+          account_id: string
+          created_at: string
+          id: string
+          plaid_item_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          account_id: string
+          created_at?: string
+          id?: string
+          plaid_item_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          account_id?: string
+          created_at?: string
+          id?: string
+          plaid_item_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plaid_tokens_account_id_fkey"
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"

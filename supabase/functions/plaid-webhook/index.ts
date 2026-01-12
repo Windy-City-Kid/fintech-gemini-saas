@@ -190,43 +190,28 @@ serve(async (req) => {
       );
     }
 
-    // Use service role client to access accounts
+    // Use service role client to access secure tables
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Find accounts with this item_id
-    const { data: accounts, error: accountsError } = await supabaseAdmin
-      .from("accounts")
-      .select("id, plaid_access_token, plaid_item_id")
-      .eq("plaid_item_id", item_id);
+    // Get access token from secure plaid_tokens table
+    const { data: tokenRecord, error: tokenError } = await supabaseAdmin
+      .from("plaid_tokens")
+      .select("access_token")
+      .eq("plaid_item_id", item_id)
+      .single();
 
-    if (accountsError) {
-      console.error("Error fetching accounts:", accountsError);
-      return new Response(
-        JSON.stringify({ error: "Database error" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
-    if (!accounts || accounts.length === 0) {
-      console.log("No accounts found for item:", item_id);
+    if (tokenError || !tokenRecord) {
+      console.log("No token found for item:", item_id);
       return new Response(
         JSON.stringify({ received: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
     }
 
-    // Get access token from first account (all accounts for same item share the token)
-    const accessToken = accounts[0].plaid_access_token;
-    if (!accessToken) {
-      console.error("No access token found for item");
-      return new Response(
-        JSON.stringify({ error: "No access token" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
+    const accessToken = tokenRecord.access_token;
 
     // Fetch latest balances from Plaid
     const balanceData = await fetchBalances(accessToken, plaidClientId, plaidSecret);
@@ -244,8 +229,6 @@ serve(async (req) => {
     // Update each account's balance
     let updatedCount = 0;
     for (const plaidAccount of balanceData.accounts) {
-      // Find matching account in our database by checking if the account has the same item
-      // Since we don't store plaid_account_id, we'll update all accounts for this item
       const { error: updateError } = await supabaseAdmin
         .from("accounts")
         .update({
