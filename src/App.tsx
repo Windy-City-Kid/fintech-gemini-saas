@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NetWorth from "./pages/NetWorth";
 import Scenarios from "./pages/Scenarios";
+import RateAssumptions from "./pages/RateAssumptions";
 import Settings from "./pages/Settings";
 import Success from "./pages/Success";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,11 @@ const App = () => (
             <Route path="/scenarios" element={
               <ProtectedRoute>
                 <Scenarios />
+              </ProtectedRoute>
+            } />
+            <Route path="/rate-assumptions" element={
+              <ProtectedRoute>
+                <RateAssumptions />
               </ProtectedRoute>
             } />
             <Route path="/settings" element={

@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut, Shield, Zap } from 'lucide-react';
+import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut, Shield, Zap, Percent } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ const navItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
   { title: 'Net Worth', path: '/net-worth', icon: Wallet },
   { title: 'Retirement Scenarios', path: '/scenarios', icon: TrendingUp },
+  { title: 'Rate Assumptions', path: '/rate-assumptions', icon: Percent },
   { title: 'Settings', path: '/settings', icon: Settings },
 ];
 

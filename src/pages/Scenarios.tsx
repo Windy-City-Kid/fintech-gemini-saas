@@ -12,8 +12,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { SimulationResult, SimulationParams, convertTo3AssetAllocation } from '@/hooks/useMonteCarloSimulation';
+import { SimulationResult, SimulationParams, convertTo3AssetAllocation, RateAssumptions } from '@/hooks/useMonteCarloSimulation';
 import { useMonteCarloWorker } from '@/hooks/useMonteCarloWorker';
+import { useRateAssumptions } from '@/hooks/useRateAssumptions';
 import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
 import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
@@ -54,6 +55,9 @@ export default function Scenarios() {
   
   // Use the portfolio data bridge hook
   const portfolio = usePortfolioData();
+  
+  // Fetch user rate assumptions
+  const { assumptions: rateAssumptions } = useRateAssumptions();
   
   // Use Web Worker for simulation (keeps UI responsive)
   const { result: simulationResult, isRunning: simulating, error: workerError, runSimulation: runWorkerSimulation } = useMonteCarloWorker();
@@ -155,6 +159,33 @@ export default function Scenarios() {
     // Convert 5-asset allocation to 3-asset for simulation
     const simAllocation = convertTo3AssetAllocation(allocation);
     
+    // Build rate assumptions from user settings (convert % to decimal)
+    const userRates: RateAssumptions = {};
+    
+    const inflationRate = rateAssumptions.find(r => r.category === 'General' && r.name === 'Inflation');
+    if (inflationRate) {
+      userRates.inflation = {
+        optimistic: inflationRate.user_optimistic / 100,
+        pessimistic: inflationRate.user_pessimistic / 100,
+      };
+    }
+    
+    const stockReturns = rateAssumptions.find(r => r.category === 'Investment' && r.name === 'Stock Returns');
+    if (stockReturns) {
+      userRates.stockReturns = {
+        optimistic: stockReturns.user_optimistic / 100,
+        pessimistic: stockReturns.user_pessimistic / 100,
+      };
+    }
+    
+    const bondReturns = rateAssumptions.find(r => r.category === 'Investment' && r.name === 'Bond Returns');
+    if (bondReturns) {
+      userRates.bondReturns = {
+        optimistic: bondReturns.user_optimistic / 100,
+        pessimistic: bondReturns.user_pessimistic / 100,
+      };
+    }
+    
     const params: SimulationParams = {
       currentAge: formValues.current_age,
       retirementAge: formValues.retirement_age,
@@ -162,11 +193,12 @@ export default function Scenarios() {
       annualContribution: formValues.annual_contribution,
       monthlyRetirementSpending: formValues.monthly_retirement_spending,
       allocation: simAllocation,
+      rateAssumptions: Object.keys(userRates).length > 0 ? userRates : undefined,
     };
     
     // Run in Web Worker to keep UI responsive
     runWorkerSimulation(params, 5000);
-  }, [formValues, currentSavings, allocation, runWorkerSimulation]);
+  }, [formValues, currentSavings, allocation, rateAssumptions, runWorkerSimulation]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;

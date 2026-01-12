@@ -14,6 +14,17 @@ interface SimpleAllocation {
   cash: number;
 }
 
+interface RateRange {
+  optimistic: number; // as decimal (e.g., 0.02 for 2%)
+  pessimistic: number; // as decimal (e.g., 0.04 for 4%)
+}
+
+interface RateAssumptions {
+  inflation?: RateRange;
+  stockReturns?: RateRange;
+  bondReturns?: RateRange;
+}
+
 interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -21,6 +32,7 @@ interface SimulationParams {
   annualContribution: number;
   monthlyRetirementSpending: number;
   allocation: SimpleAllocation;
+  rateAssumptions?: RateAssumptions;
 }
 
 interface GuardrailEvent {
@@ -164,19 +176,59 @@ function generateLHSSamples(iterations: number, years: number, dimensions: numbe
 
 // ============= CORRELATED RETURNS =============
 
+/**
+ * Get correlated returns using Cholesky decomposition
+ * If user rate assumptions are provided, use uniform sampling between optimistic/pessimistic bounds
+ */
 function getCorrelatedReturns(
-  z0: number, z1: number, z2: number, zInflation: number
+  z0: number, z1: number, z2: number, zInflation: number,
+  uniformRandom: number, // For uniform sampling between bounds
+  rateAssumptions?: RateAssumptions
 ): { stockReturn: number; bondReturn: number; cashReturn: number; inflation: number } {
-  // Apply Cholesky transformation
+  // Apply Cholesky transformation for base correlations
   const c0 = CHOLESKY_L[0][0] * z0;
   const c1 = CHOLESKY_L[1][0] * z0 + CHOLESKY_L[1][1] * z1;
   const c2 = CHOLESKY_L[2][0] * z0 + CHOLESKY_L[2][1] * z1 + CHOLESKY_L[2][2] * z2;
   
+  // Determine returns - use user bounds if provided, otherwise use normal distribution
+  let stockReturn: number;
+  let bondReturn: number;
+  let inflation: number;
+  
+  if (rateAssumptions?.stockReturns) {
+    // Uniform sampling between user's optimistic and pessimistic bounds
+    const { optimistic, pessimistic } = rateAssumptions.stockReturns;
+    const minReturn = Math.min(optimistic, pessimistic);
+    const maxReturn = Math.max(optimistic, pessimistic);
+    stockReturn = minReturn + uniformRandom * (maxReturn - minReturn);
+  } else {
+    stockReturn = ASSET_PARAMS.stocks.mean + ASSET_PARAMS.stocks.std * c0;
+  }
+  
+  if (rateAssumptions?.bondReturns) {
+    const { optimistic, pessimistic } = rateAssumptions.bondReturns;
+    const minReturn = Math.min(optimistic, pessimistic);
+    const maxReturn = Math.max(optimistic, pessimistic);
+    bondReturn = minReturn + uniformRandom * (maxReturn - minReturn);
+  } else {
+    bondReturn = ASSET_PARAMS.bonds.mean + ASSET_PARAMS.bonds.std * c1;
+  }
+  
+  if (rateAssumptions?.inflation) {
+    // For inflation, sample uniformly between optimistic (low) and pessimistic (high)
+    const { optimistic, pessimistic } = rateAssumptions.inflation;
+    const minInflation = Math.min(optimistic, pessimistic);
+    const maxInflation = Math.max(optimistic, pessimistic);
+    inflation = minInflation + uniformRandom * (maxInflation - minInflation);
+  } else {
+    inflation = Math.max(0, ASSET_PARAMS.inflation.mean + ASSET_PARAMS.inflation.std * zInflation);
+  }
+  
   return {
-    stockReturn: ASSET_PARAMS.stocks.mean + ASSET_PARAMS.stocks.std * c0,
-    bondReturn: ASSET_PARAMS.bonds.mean + ASSET_PARAMS.bonds.std * c1,
+    stockReturn,
+    bondReturn,
     cashReturn: ASSET_PARAMS.cash.mean + ASSET_PARAMS.cash.std * c2,
-    inflation: Math.max(0, ASSET_PARAMS.inflation.mean + ASSET_PARAMS.inflation.std * zInflation),
+    inflation,
   };
 }
 
@@ -231,8 +283,14 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
       // Get LHS samples
       const offset = iter * 4;
       const samples = yearSamples[year];
+      
+      // Generate a uniform random for user-defined bound sampling
+      const uniformRandom = Math.random();
+      
       const returns = getCorrelatedReturns(
-        samples[offset], samples[offset + 1], samples[offset + 2], samples[offset + 3]
+        samples[offset], samples[offset + 1], samples[offset + 2], samples[offset + 3],
+        uniformRandom,
+        params.rateAssumptions
       );
       
       if (year === 0) {

@@ -42,6 +42,17 @@ export interface SimpleAllocation {
   cash: number;    // 0 to 1
 }
 
+export interface RateRange {
+  optimistic: number; // as decimal (e.g., 0.02 for 2%)
+  pessimistic: number; // as decimal (e.g., 0.04 for 4%)
+}
+
+export interface RateAssumptions {
+  inflation?: RateRange;
+  stockReturns?: RateRange;
+  bondReturns?: RateRange;
+}
+
 export interface SimulationParams {
   currentAge: number;
   retirementAge: number;
@@ -49,6 +60,7 @@ export interface SimulationParams {
   annualContribution: number;
   monthlyRetirementSpending: number;
   allocation: SimpleAllocation;
+  rateAssumptions?: RateAssumptions;
 }
 
 export interface GuardrailEvent {
