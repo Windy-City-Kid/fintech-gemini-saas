@@ -48,7 +48,7 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
               </div>
             )}
             <p className="font-semibold">Monthly</p>
-            <p className="text-2xl font-bold mt-1">$9<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
+            <p className="text-2xl font-bold mt-1">$14.70<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
           </button>
 
           <button
@@ -69,7 +69,7 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
               Save 17%
             </div>
             <p className="font-semibold">Annual</p>
-            <p className="text-2xl font-bold mt-1">$90<span className="text-sm font-normal text-muted-foreground">/yr</span></p>
+            <p className="text-2xl font-bold mt-1">$147<span className="text-sm font-normal text-muted-foreground">/yr</span></p>
           </button>
         </div>
 
