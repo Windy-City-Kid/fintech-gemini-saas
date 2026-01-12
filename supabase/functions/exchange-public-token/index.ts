@@ -153,6 +153,7 @@ serve(async (req) => {
           account_type: accountType,
           current_balance: account.balances?.current || 0,
           plaid_access_token: accessToken, // Stored securely, never exposed to frontend
+          plaid_item_id: itemId, // Store item_id for webhook matching
           is_manual_entry: false,
           last_synced_at: new Date().toISOString(),
         })

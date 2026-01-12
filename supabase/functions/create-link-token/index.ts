@@ -54,6 +54,12 @@ serve(async (req) => {
       throw new Error("Plaid credentials not configured");
     }
 
+    // Get the webhook URL for this project
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const webhookUrl = `${supabaseUrl}/functions/v1/plaid-webhook`;
+    
+    console.log("Using webhook URL:", webhookUrl);
+
     // Create Plaid link token
     const plaidResponse = await fetch(`${PLAID_BASE_URL}/link/token/create`, {
       method: "POST",
@@ -71,6 +77,7 @@ serve(async (req) => {
         country_codes: ["US"],
         language: "en",
         redirect_uri: "https://joyful-savings-dash.lovable.app",
+        webhook: webhookUrl,
       }),
     });
 
