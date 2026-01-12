@@ -151,6 +151,48 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_assumptions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          historical_avg: number
+          id: string
+          last_updated_from_api: string | null
+          name: string
+          updated_at: string
+          user_id: string
+          user_optimistic: number
+          user_pessimistic: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          historical_avg?: number
+          id?: string
+          last_updated_from_api?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+          user_optimistic?: number
+          user_pessimistic?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          historical_avg?: number
+          id?: string
+          last_updated_from_api?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+          user_optimistic?: number
+          user_pessimistic?: number
+        }
+        Relationships: []
+      }
       scenarios: {
         Row: {
           annual_contribution: number | null
