@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.exchange-public-token]
 verify_jwt = false
+
+[functions.plaid-webhook]
+verify_jwt = false
