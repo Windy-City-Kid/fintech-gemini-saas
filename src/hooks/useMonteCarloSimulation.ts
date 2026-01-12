@@ -45,6 +45,7 @@ export interface SimpleAllocation {
 export interface RateRange {
   optimistic: number; // as decimal (e.g., 0.02 for 2%)
   pessimistic: number; // as decimal (e.g., 0.04 for 4%)
+  marketSentiment?: number; // T10YIE anchor for simulation center (as decimal)
 }
 
 export interface RateAssumptions {

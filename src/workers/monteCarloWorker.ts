@@ -17,6 +17,7 @@ interface SimpleAllocation {
 interface RateRange {
   optimistic: number; // as decimal (e.g., 0.02 for 2%)
   pessimistic: number; // as decimal (e.g., 0.04 for 4%)
+  marketSentiment?: number; // T10YIE anchor for simulation center (as decimal)
 }
 
 interface RateAssumptions {
@@ -178,11 +179,17 @@ function generateLHSSamples(iterations: number, years: number, dimensions: numbe
 
 /**
  * Get correlated returns using Cholesky decomposition
- * If user rate assumptions are provided, use uniform sampling between optimistic/pessimistic bounds
+ * 
+ * If user rate assumptions are provided:
+ * - For inflation: If market_sentiment (T10YIE) is available, use it as the center
+ *   of a triangular distribution bounded by optimistic/pessimistic (Boldin framework)
+ * - Otherwise: Use uniform sampling between optimistic/pessimistic bounds
  */
 function getCorrelatedReturns(
   z0: number, z1: number, z2: number, zInflation: number,
   uniformRandom: number, // For uniform sampling between bounds
+  triangularRandom1: number, // For triangular distribution
+  triangularRandom2: number, // Second random for triangular
   rateAssumptions?: RateAssumptions
 ): { stockReturn: number; bondReturn: number; cashReturn: number; inflation: number } {
   // Apply Cholesky transformation for base correlations
@@ -215,11 +222,30 @@ function getCorrelatedReturns(
   }
   
   if (rateAssumptions?.inflation) {
-    // For inflation, sample uniformly between optimistic (low) and pessimistic (high)
-    const { optimistic, pessimistic } = rateAssumptions.inflation;
+    const { optimistic, pessimistic, marketSentiment } = rateAssumptions.inflation;
     const minInflation = Math.min(optimistic, pessimistic);
     const maxInflation = Math.max(optimistic, pessimistic);
-    inflation = minInflation + uniformRandom * (maxInflation - minInflation);
+    
+    // If market sentiment (T10YIE) is available, use triangular distribution
+    // This anchors simulations to current market expectations while respecting user bounds
+    if (marketSentiment !== undefined && marketSentiment !== null) {
+      // Clamp market sentiment to user bounds
+      const mode = Math.max(minInflation, Math.min(maxInflation, marketSentiment));
+      
+      // Generate triangular distribution sample
+      // Using the standard triangular distribution formula
+      const f = (mode - minInflation) / (maxInflation - minInflation);
+      const u = triangularRandom1;
+      
+      if (u < f) {
+        inflation = minInflation + Math.sqrt(u * (maxInflation - minInflation) * (mode - minInflation));
+      } else {
+        inflation = maxInflation - Math.sqrt((1 - u) * (maxInflation - minInflation) * (maxInflation - mode));
+      }
+    } else {
+      // Uniform sampling between optimistic and pessimistic
+      inflation = minInflation + uniformRandom * (maxInflation - minInflation);
+    }
   } else {
     inflation = Math.max(0, ASSET_PARAMS.inflation.mean + ASSET_PARAMS.inflation.std * zInflation);
   }
@@ -284,12 +310,16 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
       const offset = iter * 4;
       const samples = yearSamples[year];
       
-      // Generate a uniform random for user-defined bound sampling
+      // Generate random values for user-defined bound sampling
       const uniformRandom = Math.random();
+      const triangularRandom1 = Math.random();
+      const triangularRandom2 = Math.random();
       
       const returns = getCorrelatedReturns(
         samples[offset], samples[offset + 1], samples[offset + 2], samples[offset + 3],
         uniformRandom,
+        triangularRandom1,
+        triangularRandom2,
         params.rateAssumptions
       );
       

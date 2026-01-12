@@ -14,6 +14,98 @@ interface FredResponse {
   observations: FredObservation[];
 }
 
+/**
+ * Dual-Data Economic Intelligence Service
+ * 
+ * CPIAUCSL: Consumer Price Index (CPI-U) - Historical baseline (1994-2024 avg: ~2.54%)
+ * T10YIE: 10-Year Breakeven Inflation Rate - Current market expectations
+ * 
+ * The Boldin framework uses CPI-U for historical context while T10YIE anchors
+ * Monte Carlo simulations to current market sentiment.
+ */
+
+async function fetchFredSeries(seriesId: string, apiKey: string): Promise<{ date: string; value: number } | null> {
+  try {
+    const fredUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&sort_order=desc&limit=1`;
+    
+    const response = await fetch(fredUrl);
+    
+    if (!response.ok) {
+      console.error(`FRED API error for ${seriesId}:`, response.status);
+      return null;
+    }
+
+    const data: FredResponse = await response.json();
+    
+    if (!data.observations || data.observations.length === 0) {
+      console.error(`No data from FRED for ${seriesId}`);
+      return null;
+    }
+
+    const latest = data.observations[0];
+    const value = parseFloat(latest.value);
+
+    if (isNaN(value)) {
+      console.error(`Invalid value from FRED for ${seriesId}:`, latest.value);
+      return null;
+    }
+
+    return { date: latest.date, value };
+  } catch (error) {
+    console.error(`Error fetching ${seriesId}:`, error);
+    return null;
+  }
+}
+
+// Calculate CPI-U historical average (year-over-year % change)
+async function fetchCPIHistoricalAverage(apiKey: string): Promise<{ value: number; latestDate: string } | null> {
+  try {
+    // Fetch last 30 years of monthly CPI data
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = '1994-01-01';
+    
+    const fredUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=CPIAUCSL&api_key=${apiKey}&file_type=json&observation_start=${startDate}&observation_end=${endDate}&frequency=a&aggregation_method=avg&units=pc1`;
+    
+    const response = await fetch(fredUrl);
+    
+    if (!response.ok) {
+      console.error('FRED API error for CPIAUCSL:', response.status);
+      return null;
+    }
+
+    const data: FredResponse = await response.json();
+    
+    if (!data.observations || data.observations.length === 0) {
+      console.error('No CPIAUCSL data from FRED');
+      return null;
+    }
+
+    // Calculate average of annual percentage changes
+    let sum = 0;
+    let count = 0;
+    
+    for (const obs of data.observations) {
+      const val = parseFloat(obs.value);
+      if (!isNaN(val)) {
+        sum += val;
+        count++;
+      }
+    }
+
+    if (count === 0) return null;
+
+    const average = sum / count;
+    const latestDate = data.observations[data.observations.length - 1].date;
+
+    console.log(`CPIAUCSL historical average (${startDate} to ${latestDate}): ${average.toFixed(2)}%`);
+    
+    return { value: Math.round(average * 100) / 100, latestDate };
+  } catch (error) {
+    console.error('Error calculating CPI average:', error);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -42,13 +134,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create Supabase client
-    const supabaseAdmin = createClient(
-      SUPABASE_URL!,
-      SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // Verify user token
+    // Create Supabase clients
+    const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const supabaseUser = createClient(
       SUPABASE_URL!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -65,78 +152,77 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Fetching FRED data for user:', user.id);
+    console.log('Fetching dual economic data for user:', user.id);
 
-    // Fetch 10-Year Breakeven Inflation Rate (T10YIE)
-    // This is the market's expected inflation rate over the next 10 years
-    const fredUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=T10YIE&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=1`;
-    
-    const fredResponse = await fetch(fredUrl);
-    
-    if (!fredResponse.ok) {
-      console.error('FRED API error:', fredResponse.status, await fredResponse.text());
+    // Fetch both data sources in parallel
+    const [cpiData, t10yieData] = await Promise.all([
+      fetchCPIHistoricalAverage(FRED_API_KEY),
+      fetchFredSeries('T10YIE', FRED_API_KEY)
+    ]);
+
+    if (!cpiData && !t10yieData) {
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch FRED data' }),
+        JSON.stringify({ error: 'Failed to fetch any FRED data' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const fredData: FredResponse = await fredResponse.json();
-    console.log('FRED response:', JSON.stringify(fredData));
+    console.log('CPIAUCSL (Historical Baseline):', cpiData?.value, '%');
+    console.log('T10YIE (Market Sentiment):', t10yieData?.value, '%');
 
-    if (!fredData.observations || fredData.observations.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No data from FRED' }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Prepare update object
+    const updateData: Record<string, unknown> = {
+      last_updated_from_api: new Date().toISOString()
+    };
+
+    if (cpiData) {
+      updateData.historical_avg = cpiData.value;
     }
 
-    const latestObservation = fredData.observations[0];
-    const inflationRate = parseFloat(latestObservation.value);
-
-    if (isNaN(inflationRate)) {
-      console.error('Invalid inflation rate value:', latestObservation.value);
-      return new Response(
-        JSON.stringify({ error: 'Invalid data from FRED' }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (t10yieData) {
+      updateData.market_sentiment = t10yieData.value;
     }
 
-    console.log('Latest 10-Year Breakeven Inflation Rate:', inflationRate, '% as of', latestObservation.date);
-
-    // Update the user's General Inflation historical_avg
-    const { data: updateData, error: updateError } = await supabaseAdmin
+    // Update the user's General Inflation record
+    const { data: existingRecord, error: fetchError } = await supabaseAdmin
       .from('rate_assumptions')
-      .update({
-        historical_avg: inflationRate,
-        last_updated_from_api: new Date().toISOString()
-      })
+      .select('id')
       .eq('user_id', user.id)
       .eq('category', 'General')
       .eq('name', 'Inflation')
-      .select();
+      .maybeSingle();
 
-    if (updateError) {
-      console.error('Database update error:', updateError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to update database', details: updateError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (fetchError) {
+      console.error('Error fetching existing record:', fetchError);
     }
 
-    // If no rows updated, the user might not have the assumption yet
-    if (!updateData || updateData.length === 0) {
-      // Insert a new record
+    if (existingRecord) {
+      // Update existing record
+      const { error: updateError } = await supabaseAdmin
+        .from('rate_assumptions')
+        .update(updateData)
+        .eq('id', existingRecord.id);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to update database', details: updateError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      // Insert new record
       const { error: insertError } = await supabaseAdmin
         .from('rate_assumptions')
         .insert({
           user_id: user.id,
           category: 'General',
           name: 'Inflation',
-          description: 'General price level increase based on CPI',
-          historical_avg: inflationRate,
-          user_optimistic: Math.max(1.5, inflationRate - 1),
-          user_pessimistic: inflationRate + 1.5,
+          description: 'General price level increase based on CPI-U',
+          historical_avg: cpiData?.value || 2.54,
+          market_sentiment: t10yieData?.value || null,
+          user_optimistic: Math.max(1.5, (cpiData?.value || 2.54) - 1),
+          user_pessimistic: (cpiData?.value || 2.54) + 1.5,
           last_updated_from_api: new Date().toISOString()
         });
 
@@ -153,10 +239,20 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         data: {
-          series: 'T10YIE',
-          date: latestObservation.date,
-          value: inflationRate,
-          description: '10-Year Breakeven Inflation Rate'
+          cpi: cpiData ? {
+            series: 'CPIAUCSL',
+            description: 'CPI-U Historical Average (1994-present)',
+            value: cpiData.value,
+            date: cpiData.latestDate,
+            usage: 'Historical baseline for rate assumptions'
+          } : null,
+          marketSentiment: t10yieData ? {
+            series: 'T10YIE',
+            description: '10-Year Breakeven Inflation Rate',
+            value: t10yieData.value,
+            date: t10yieData.date,
+            usage: 'Monte Carlo simulation anchor'
+          } : null
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
