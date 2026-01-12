@@ -1,48 +1,20 @@
 /**
- * Monte Carlo Simulation Engine v2.0
+ * Monte Carlo Simulation Web Worker
+ * Offloads 5,000-trial LHS/Cholesky computation from main thread
  * 
- * Specifications:
- * - Latin Hypercube Sampling (LHS) for 5,000 iterations
- * - 3x3 Cholesky Decomposition: [[1.0, -0.1, 0.0], [-0.1, 1.0, 0.2], [0.0, 0.2, 1.0]]
- * - Asset classes: [Stocks, Bonds, Cash]
- * - Stochastic inflation: μ=2.5%, σ=1%
- * - Stock returns: μ=7%, σ=18%
- * - Dynamic guardrails: 10% spending cut if portfolio < 80% of start
- * - Performance target: <500ms for 5,000 trials
+ * Correlation Matrix: [[1.0, 0.1, 0.0], [0.1, 1.0, 0.1], [0.0, 0.1, 1.0]]
+ * Asset Classes: [Stocks, Bonds, Cash]
  */
 
-// ============= SIMULATION PARAMETERS =============
+// ============= TYPES =============
 
-/** 
- * 3x3 Historical Correlation Matrix [Stocks, Bonds, Cash]
- * As specified: [[1.0, 0.1, 0.0], [0.1, 1.0, 0.1], [0.0, 0.1, 1.0]]
- */
-const CORRELATION_MATRIX_3X3: number[][] = [
-  [1.0, 0.1, 0.0],  // Stocks
-  [0.1, 1.0, 0.1],  // Bonds
-  [0.0, 0.1, 1.0],  // Cash
-];
-
-/** Pre-computed Cholesky decomposition of correlation matrix */
-const CHOLESKY_L_3X3: number[][] = choleskyDecomposition3x3(CORRELATION_MATRIX_3X3);
-
-/** Asset class return parameters */
-const ASSET_PARAMS = {
-  stocks: { mean: 0.07, std: 0.18 },    // 7% return, 18% volatility (as specified)
-  bonds: { mean: 0.04, std: 0.06 },     // 4% return, 6% volatility
-  cash: { mean: 0.02, std: 0.01 },      // 2% return, 1% volatility
-  inflation: { mean: 0.025, std: 0.01 }, // 2.5% mean, 1% deviation (as specified)
-};
-
-// ============= TYPE DEFINITIONS =============
-
-export interface SimpleAllocation {
-  stocks: number;  // 0 to 1
-  bonds: number;   // 0 to 1
-  cash: number;    // 0 to 1
+interface SimpleAllocation {
+  stocks: number;
+  bonds: number;
+  cash: number;
 }
 
-export interface SimulationParams {
+interface SimulationParams {
   currentAge: number;
   retirementAge: number;
   currentSavings: number;
@@ -51,13 +23,13 @@ export interface SimulationParams {
   allocation: SimpleAllocation;
 }
 
-export interface GuardrailEvent {
+interface GuardrailEvent {
   yearInRetirement: number;
   activations: number;
   percentage: number;
 }
 
-export interface SimulationResult {
+interface SimulationResult {
   percentiles: {
     p5: number[];
     p25: number[];
@@ -78,13 +50,36 @@ export interface SimulationResult {
   executionTimeMs: number;
 }
 
-// ============= MATH UTILITIES =============
+// ============= PARAMETERS =============
 
-/** Cholesky decomposition for 3x3 matrix */
-function choleskyDecomposition3x3(matrix: number[][]): number[][] {
-  const L: number[][] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+/** 
+ * 3x3 Historical Correlation Matrix [Stocks, Bonds, Cash]
+ * As specified: [[1.0, 0.1, 0.0], [0.1, 1.0, 0.1], [0.0, 0.1, 1.0]]
+ */
+const CORRELATION_MATRIX: number[][] = [
+  [1.0, 0.1, 0.0],  // Stocks
+  [0.1, 1.0, 0.1],  // Bonds
+  [0.0, 0.1, 1.0],  // Cash
+];
+
+/** Asset return parameters */
+const ASSET_PARAMS = {
+  stocks: { mean: 0.07, std: 0.18 },
+  bonds: { mean: 0.04, std: 0.06 },
+  cash: { mean: 0.02, std: 0.01 },
+  inflation: { mean: 0.025, std: 0.01 }, // 2.5% mean, 1% std dev
+};
+
+// ============= CHOLESKY DECOMPOSITION =============
+
+function choleskyDecomposition(matrix: number[][]): number[][] {
+  const n = matrix.length;
+  const L: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    L[i] = new Array(n).fill(0);
+  }
   
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < n; i++) {
     for (let j = 0; j <= i; j++) {
       let sum = 0;
       for (let k = 0; k < j; k++) {
@@ -100,7 +95,11 @@ function choleskyDecomposition3x3(matrix: number[][]): number[][] {
   return L;
 }
 
-/** Fast inverse normal CDF using Beasley-Springer-Moro algorithm */
+// Pre-compute Cholesky L matrix
+const CHOLESKY_L = choleskyDecomposition(CORRELATION_MATRIX);
+
+// ============= INVERSE NORMAL CDF =============
+
 function inverseNormalCDF(p: number): number {
   p = Math.max(0.0001, Math.min(0.9999, p));
   
@@ -132,42 +131,26 @@ function inverseNormalCDF(p: number): number {
   }
 }
 
-// ============= VECTORIZED LHS GENERATION =============
+// ============= LHS SAMPLE GENERATION =============
 
-/**
- * Generate Latin Hypercube Samples for all years and iterations at once
- * Uses pre-allocated Float64Arrays for performance
- */
-function generateAllLHSSamples(
-  iterations: number,
-  years: number,
-  dimensions: number
-): Float64Array[] {
-  // Pre-allocate arrays for each year
+function generateLHSSamples(iterations: number, years: number, dimensions: number): Float64Array[] {
   const yearSamples: Float64Array[] = [];
   
   for (let year = 0; year < years; year++) {
-    // Each year needs iterations * dimensions values
     const samples = new Float64Array(iterations * dimensions);
     
     for (let d = 0; d < dimensions; d++) {
-      // Create stratified samples for this dimension
       const intervals = new Float64Array(iterations);
       for (let i = 0; i < iterations; i++) {
-        const lower = i / iterations;
-        const upper = (i + 1) / iterations;
-        intervals[i] = lower + Math.random() * (upper - lower);
+        intervals[i] = (i + Math.random()) / iterations;
       }
       
       // Fisher-Yates shuffle
       for (let i = iterations - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        const temp = intervals[i];
-        intervals[i] = intervals[j];
-        intervals[j] = temp;
+        [intervals[i], intervals[j]] = [intervals[j], intervals[i]];
       }
       
-      // Convert to standard normal and store
       for (let i = 0; i < iterations; i++) {
         samples[i * dimensions + d] = inverseNormalCDF(intervals[i]);
       }
@@ -179,18 +162,15 @@ function generateAllLHSSamples(
   return yearSamples;
 }
 
-/**
- * Apply Cholesky transformation and generate correlated returns
- * Inline for performance
- */
+// ============= CORRELATED RETURNS =============
+
 function getCorrelatedReturns(
-  z0: number, z1: number, z2: number, zInflation: number,
-  L: number[][]
+  z0: number, z1: number, z2: number, zInflation: number
 ): { stockReturn: number; bondReturn: number; cashReturn: number; inflation: number } {
-  // Apply Cholesky: L * z
-  const c0 = L[0][0] * z0;
-  const c1 = L[1][0] * z0 + L[1][1] * z1;
-  const c2 = L[2][0] * z0 + L[2][1] * z1 + L[2][2] * z2;
+  // Apply Cholesky transformation
+  const c0 = CHOLESKY_L[0][0] * z0;
+  const c1 = CHOLESKY_L[1][0] * z0 + CHOLESKY_L[1][1] * z1;
+  const c2 = CHOLESKY_L[2][0] * z0 + CHOLESKY_L[2][1] * z1 + CHOLESKY_L[2][2] * z2;
   
   return {
     stockReturn: ASSET_PARAMS.stocks.mean + ASSET_PARAMS.stocks.std * c0,
@@ -200,49 +180,41 @@ function getCorrelatedReturns(
   };
 }
 
-// ============= MAIN SIMULATION ENGINE =============
+// ============= MAIN SIMULATION =============
 
-/**
- * Run optimized Monte Carlo simulation
- * Target: <500ms for 5,000 iterations
- */
-export function runMonteCarloSimulation(
-  params: SimulationParams,
-  iterations: number = 5000
-): SimulationResult {
+function runSimulation(params: SimulationParams, iterations: number): SimulationResult {
   const startTime = performance.now();
   
   const yearsToRetirement = params.retirementAge - params.currentAge;
   const retirementYears = 35;
   const yearsToSimulate = yearsToRetirement + retirementYears;
-  const ages = new Array(yearsToSimulate + 1);
+  
+  const ages: number[] = [];
   for (let i = 0; i <= yearsToSimulate; i++) {
-    ages[i] = params.currentAge + i;
+    ages.push(params.currentAge + i);
   }
   
-  // Pre-generate all LHS samples (4 dimensions: 3 assets + inflation)
-  const yearSamples = generateAllLHSSamples(iterations, yearsToSimulate, 4);
+  // Generate all LHS samples upfront (4 dims: 3 assets + inflation)
+  const yearSamples = generateLHSSamples(iterations, yearsToSimulate, 4);
   
-  // Pre-allocate result arrays using Float64Array for performance
+  // Pre-allocate arrays
   const allBalances = new Float64Array(iterations * (yearsToSimulate + 1));
   const guardrailByYear = new Uint16Array(retirementYears + 1);
   const firstYearInflations = new Float64Array(iterations);
   
-  // Guardrail threshold: 80% of starting (i.e., drops below 20% loss)
-  const GUARDRAIL_THRESHOLD = 0.8;
-  const RECOVERY_THRESHOLD = 0.9;
-  const SPENDING_REDUCTION = 0.9; // 10% reduction
+  // Normalize allocation
+  const total = params.allocation.stocks + params.allocation.bonds + params.allocation.cash;
+  const sw = params.allocation.stocks / total;
+  const bw = params.allocation.bonds / total;
+  const cw = params.allocation.cash / total;
   
   let successCount = 0;
   let totalGuardrailActivations = 0;
   
-  // Normalize allocation
-  const allocSum = params.allocation.stocks + params.allocation.bonds + params.allocation.cash;
-  const stockWeight = params.allocation.stocks / allocSum;
-  const bondWeight = params.allocation.bonds / allocSum;
-  const cashWeight = params.allocation.cash / allocSum;
+  // Guardrail: 80% threshold (20% loss triggers)
+  const GUARDRAIL_THRESHOLD = 0.8;
+  const RECOVERY_THRESHOLD = 0.9;
   
-  // Main simulation loop - optimized
   for (let iter = 0; iter < iterations; iter++) {
     let balance = params.currentSavings;
     allBalances[iter * (yearsToSimulate + 1)] = balance;
@@ -256,46 +228,33 @@ export function runMonteCarloSimulation(
       const isRetired = age >= params.retirementAge;
       const yearInRetirement = isRetired ? age - params.retirementAge : -1;
       
-      // Get samples for this year/iteration
-      const sampleOffset = iter * 4;
+      // Get LHS samples
+      const offset = iter * 4;
       const samples = yearSamples[year];
-      const z0 = samples[sampleOffset];
-      const z1 = samples[sampleOffset + 1];
-      const z2 = samples[sampleOffset + 2];
-      const zInf = samples[sampleOffset + 3];
+      const returns = getCorrelatedReturns(
+        samples[offset], samples[offset + 1], samples[offset + 2], samples[offset + 3]
+      );
       
-      // Generate correlated returns
-      const returns = getCorrelatedReturns(z0, z1, z2, zInf, CHOLESKY_L_3X3);
-      
-      // Track first-year inflation for stats
       if (year === 0) {
         firstYearInflations[iter] = returns.inflation;
       }
       
-      // Calculate weighted portfolio return
-      const portfolioReturn = 
-        stockWeight * returns.stockReturn +
-        bondWeight * returns.bondReturn +
-        cashWeight * returns.cashReturn;
+      // Portfolio return based on allocation
+      const portfolioReturn = sw * returns.stockReturn + bw * returns.bondReturn + cw * returns.cashReturn;
       
       if (!isRetired) {
-        // Accumulation phase
         balance = balance * (1 + portfolioReturn) + params.annualContribution;
       } else {
-        // Store retirement start balance
         if (age === params.retirementAge) {
           retirementStartBalance = balance;
         }
         
-        // Calculate inflation-adjusted spending
+        // Inflation-adjusted spending
         let annualSpending = params.monthlyRetirementSpending * 12 * 
           Math.pow(1 + ASSET_PARAMS.inflation.mean, yearInRetirement);
         
-        // Dynamic Spending Guardrails
-        const guardrailThreshold = retirementStartBalance * GUARDRAIL_THRESHOLD;
-        const recoveryThreshold = retirementStartBalance * RECOVERY_THRESHOLD;
-        
-        if (balance < guardrailThreshold && !guardrailActive) {
+        // Guardrail logic
+        if (balance < retirementStartBalance * GUARDRAIL_THRESHOLD && !guardrailActive) {
           guardrailActive = true;
           iterGuardrailCount++;
           if (yearInRetirement >= 0 && yearInRetirement <= retirementYears) {
@@ -304,21 +263,18 @@ export function runMonteCarloSimulation(
         }
         
         if (guardrailActive) {
-          annualSpending *= SPENDING_REDUCTION;
-          if (balance >= recoveryThreshold) {
+          annualSpending *= 0.9; // 10% reduction
+          if (balance >= retirementStartBalance * RECOVERY_THRESHOLD) {
             guardrailActive = false;
           }
         }
         
-        // Apply returns and spending
         balance = balance * (1 + portfolioReturn) - annualSpending;
       }
       
-      // Store balance (clamped to 0)
       allBalances[iter * (yearsToSimulate + 1) + year + 1] = Math.max(0, balance);
     }
     
-    // Check success (has money at end)
     if (allBalances[iter * (yearsToSimulate + 1) + yearsToSimulate] > 0) {
       successCount++;
     }
@@ -326,7 +282,7 @@ export function runMonteCarloSimulation(
     totalGuardrailActivations += iterGuardrailCount;
   }
   
-  // Calculate percentiles efficiently
+  // Calculate percentiles
   const percentiles = {
     p5: new Array(yearsToSimulate + 1),
     p25: new Array(yearsToSimulate + 1),
@@ -338,15 +294,11 @@ export function runMonteCarloSimulation(
   const sortBuffer = new Float64Array(iterations);
   
   for (let year = 0; year <= yearsToSimulate; year++) {
-    // Extract balances for this year into sort buffer
     for (let i = 0; i < iterations; i++) {
       sortBuffer[i] = allBalances[i * (yearsToSimulate + 1) + year];
     }
-    
-    // Sort
     sortBuffer.sort();
     
-    // Extract percentiles
     percentiles.p5[year] = sortBuffer[Math.floor(iterations * 0.05)];
     percentiles.p25[year] = sortBuffer[Math.floor(iterations * 0.25)];
     percentiles.p50[year] = sortBuffer[Math.floor(iterations * 0.50)];
@@ -354,7 +306,7 @@ export function runMonteCarloSimulation(
     percentiles.p95[year] = sortBuffer[Math.floor(iterations * 0.95)];
   }
   
-  // Format guardrail events
+  // Guardrail events
   const guardrailEvents: GuardrailEvent[] = [];
   for (let y = 1; y <= retirementYears; y++) {
     if (guardrailByYear[y] > 0) {
@@ -366,10 +318,8 @@ export function runMonteCarloSimulation(
     }
   }
   
-  // Calculate inflation scenarios
+  // Inflation stats
   firstYearInflations.sort();
-  
-  const executionTimeMs = performance.now() - startTime;
   
   return {
     percentiles,
@@ -383,35 +333,19 @@ export function runMonteCarloSimulation(
       median: firstYearInflations[Math.floor(iterations * 0.5)] * 100,
       high: firstYearInflations[Math.floor(iterations * 0.9)] * 100,
     },
-    executionTimeMs,
+    executionTimeMs: performance.now() - startTime,
   };
 }
 
-// ============= LEGACY COMPATIBILITY =============
+// ============= WORKER MESSAGE HANDLER =============
 
-/** Convert 5-asset allocation to 3-asset for simulation */
-export function convertTo3AssetAllocation(allocation: {
-  domesticStocks?: number;
-  intlStocks?: number;
-  bonds?: number;
-  realEstate?: number;
-  cash?: number;
-}): SimpleAllocation {
-  const stocks = (allocation.domesticStocks || 0) + (allocation.intlStocks || 0);
-  const bonds = (allocation.bonds || 0) + (allocation.realEstate || 0); // REITs → Bonds proxy
-  const cash = allocation.cash || 0;
+self.onmessage = (e: MessageEvent<{ params: SimulationParams; iterations: number }>) => {
+  const { params, iterations } = e.data;
   
-  const total = stocks + bonds + cash;
-  if (total === 0) {
-    return { stocks: 0.6, bonds: 0.3, cash: 0.1 };
+  try {
+    const result = runSimulation(params, iterations);
+    self.postMessage({ success: true, result });
+  } catch (error) {
+    self.postMessage({ success: false, error: String(error) });
   }
-  
-  return {
-    stocks: stocks / total,
-    bonds: bonds / total,
-    cash: cash / total,
-  };
-}
-
-/** Export ASSET_PARAMS for use in UI */
-export { ASSET_PARAMS };
+};

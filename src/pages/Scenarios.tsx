@@ -12,7 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { runMonteCarloSimulation, SimulationResult, SimulationParams, convertTo3AssetAllocation } from '@/hooks/useMonteCarloSimulation';
+import { SimulationResult, SimulationParams, convertTo3AssetAllocation } from '@/hooks/useMonteCarloSimulation';
+import { useMonteCarloWorker } from '@/hooks/useMonteCarloWorker';
 import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
 import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
@@ -48,11 +49,12 @@ export default function Scenarios() {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [simulating, setSimulating] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
   
   // Use the portfolio data bridge hook
   const portfolio = usePortfolioData();
+  
+  // Use Web Worker for simulation (keeps UI responsive)
+  const { result: simulationResult, isRunning: simulating, error: workerError, runSimulation: runWorkerSimulation } = useMonteCarloWorker();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ScenarioFormData>({
     resolver: zodResolver(scenarioSchema),
@@ -131,36 +133,38 @@ export default function Scenarios() {
   const currentSavings = portfolio.totalBalance;
   const allocation = portfolio.allocationPercentages;
 
+  // Show toast on worker error
+  useEffect(() => {
+    if (workerError) {
+      toast.error('Simulation failed', { description: workerError });
+    }
+  }, [workerError]);
+
+  // Show success toast when simulation completes
+  useEffect(() => {
+    if (simulationResult && !simulating) {
+      toast.success('Simulation complete', {
+        description: `${simulationResult.successRate.toFixed(1)}% success rate in ${simulationResult.executionTimeMs?.toFixed(0) || '?'}ms`,
+      });
+    }
+  }, [simulationResult, simulating]);
+
   const runSimulation = useCallback(() => {
-    setSimulating(true);
+    // Convert 5-asset allocation to 3-asset for simulation
+    const simAllocation = convertTo3AssetAllocation(allocation);
     
-    setTimeout(() => {
-      try {
-        // Convert 5-asset allocation to 3-asset for simulation
-        const simAllocation = convertTo3AssetAllocation(allocation);
-        
-        const params: SimulationParams = {
-          currentAge: formValues.current_age,
-          retirementAge: formValues.retirement_age,
-          currentSavings,
-          annualContribution: formValues.annual_contribution,
-          monthlyRetirementSpending: formValues.monthly_retirement_spending,
-          allocation: simAllocation,
-        };
-        
-        const result = runMonteCarloSimulation(params, 5000);
-        setSimulationResult(result);
-        toast.success('Simulation complete', {
-          description: `${result.successRate.toFixed(1)}% success rate across 5,000 trials`,
-        });
-      } catch (error) {
-        console.error('Simulation error:', error);
-        toast.error('Simulation failed');
-      } finally {
-        setSimulating(false);
-      }
-    }, 50);
-  }, [formValues, currentSavings, allocation]);
+    const params: SimulationParams = {
+      currentAge: formValues.current_age,
+      retirementAge: formValues.retirement_age,
+      currentSavings,
+      annualContribution: formValues.annual_contribution,
+      monthlyRetirementSpending: formValues.monthly_retirement_spending,
+      allocation: simAllocation,
+    };
+    
+    // Run in Web Worker to keep UI responsive
+    runWorkerSimulation(params, 5000);
+  }, [formValues, currentSavings, allocation, runWorkerSimulation]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
