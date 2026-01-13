@@ -26,6 +26,7 @@ import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
 import { PropertySummaryCard } from '@/components/scenarios/PropertySummaryCard';
 import { HomeEquityChart } from '@/components/scenarios/HomeEquityChart';
 import { RetirementCoach } from '@/components/scenarios/RetirementCoach';
+import { CategoryInsightsPanel } from '@/components/scenarios/CategoryInsightsPanel';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { useProperties } from '@/hooks/useProperties';
 import { useStateTaxRules } from '@/hooks/useStateTaxRules';
@@ -362,6 +363,30 @@ export default function Scenarios() {
       {/* AI Retirement Coach */}
       <div className="mb-8">
         <RetirementCoach planSummary={coachPlanSummary} />
+      </div>
+
+      {/* Category Insight Charts - Income, Expenses, Debt */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Category Insights</h2>
+          <p className="text-sm text-muted-foreground">Click any bar to drill down into detailed data</p>
+        </div>
+        <CategoryInsightsPanel
+          currentAge={formValues.current_age}
+          retirementAge={formValues.retirement_age}
+          monthlySpending={formValues.monthly_retirement_spending}
+          socialSecurityIncome={(scenario as any)?.social_security_income || 24000}
+          simulationResults={simulationResult?.percentiles ? [
+            ...Array.from({ length: 100 - formValues.current_age + 1 }, (_, i) => ({
+              age: formValues.current_age + i,
+              year: new Date().getFullYear() + i,
+              median: simulationResult.percentiles.p50[i] || 0,
+            }))
+          ] : undefined}
+          medicalInflation={rateAssumptions.find(r => r.name === 'Medical Inflation')?.user_optimistic || 3.36}
+          propertyTaxRate={1.1}
+          homeValue={primaryResidence?.estimated_value || 500000}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
