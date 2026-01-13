@@ -28,14 +28,18 @@ export { RothConversionChart } from './RothConversionChart';
 export { RothLifetimeTaxChart } from './RothLifetimeTaxChart';
 export { RMDImpactChart } from './RMDImpactChart';
 
-// Other Components
+// Social Security Strategy
 export { SocialSecurityStrategy } from './SocialSecurityStrategy';
+export { SocialSecurityClaimingExplorer } from './SocialSecurityClaimingExplorer';
+export { SSStrategyComparisonChart } from './SSStrategyComparisonChart';
+export { LifetimeBenefitsChart } from './LifetimeBenefitsChart';
+
+// Other Components
 export { MedicalCostWatch } from './MedicalCostWatch';
 export { IRSLimitWarning } from './IRSLimitWarning';
 export { PlanSummary } from './PlanSummary';
 export { TaxProfileCard } from './TaxProfileCard';
 export { RelocationExplorer } from './RelocationExplorer';
-export { LifetimeBenefitsChart } from './LifetimeBenefitsChart';
 
 // Healthcare & IRMAA
 export { HealthcareCostChart } from './HealthcareCostChart';
