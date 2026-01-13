@@ -62,6 +62,72 @@ export type Database = {
         }
         Relationships: []
       }
+      beneficiaries: {
+        Row: {
+          allocation_percentage: number
+          created_at: string
+          estimated_marginal_rate: number | null
+          id: string
+          name: string
+          receives_traditional_ira: boolean | null
+          relationship: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allocation_percentage?: number
+          created_at?: string
+          estimated_marginal_rate?: number | null
+          id?: string
+          name: string
+          receives_traditional_ira?: boolean | null
+          relationship?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allocation_percentage?: number
+          created_at?: string
+          estimated_marginal_rate?: number | null
+          id?: string
+          name?: string
+          receives_traditional_ira?: boolean | null
+          relationship?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      charitable_bequests: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          is_percentage: boolean | null
+          organization_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          is_percentage?: boolean | null
+          organization_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          is_percentage?: boolean | null
+          organization_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           account_id: string

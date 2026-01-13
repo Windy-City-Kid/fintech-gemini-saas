@@ -4,3 +4,6 @@ export { AssetTransferSummary } from './AssetTransferSummary';
 export { LegacyGoalCard } from './LegacyGoalCard';
 export { CharitableBequestsCard } from './CharitableBequestsCard';
 export { WealthTransferSankey } from './WealthTransferSankey';
+export { BeneficiariesTable } from './BeneficiariesTable';
+export { ProbabilisticEstateReport } from './ProbabilisticEstateReport';
+export { CharitableBequestsManager } from './CharitableBequestsManager';
