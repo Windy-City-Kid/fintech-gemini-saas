@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.sync-economic-data]
 verify_jwt = false
+
+[functions.retirement-coach]
+verify_jwt = false
+
+[functions.process-dead-letter-queue]
+verify_jwt = false

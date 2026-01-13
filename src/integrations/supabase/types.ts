@@ -128,6 +128,54 @@ export type Database = {
         }
         Relationships: []
       }
+      dead_letter_queue: {
+        Row: {
+          created_at: string
+          error_message: string
+          event_id: string
+          event_type: string
+          id: string
+          last_attempted_at: string | null
+          max_retries: number
+          next_retry_at: string | null
+          payload: Json
+          provider: string
+          resolved_at: string | null
+          retry_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message: string
+          event_id: string
+          event_type: string
+          id?: string
+          last_attempted_at?: string | null
+          max_retries?: number
+          next_retry_at?: string | null
+          payload: Json
+          provider?: string
+          resolved_at?: string | null
+          retry_count?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string
+          event_id?: string
+          event_type?: string
+          id?: string
+          last_attempted_at?: string | null
+          max_retries?: number
+          next_retry_at?: string | null
+          payload?: Json
+          provider?: string
+          resolved_at?: string | null
+          retry_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           account_id: string
@@ -283,6 +331,51 @@ export type Database = {
           updated_at?: string
           user_id?: string
           windfall_type?: string | null
+        }
+        Relationships: []
+      }
+      incoming_events: {
+        Row: {
+          created_at: string
+          event_code: string | null
+          event_id: string
+          event_type: string
+          id: string
+          last_error: string | null
+          payload: Json
+          processed_at: string | null
+          processing_attempts: number
+          provider: string
+          received_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          event_code?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          last_error?: string | null
+          payload: Json
+          processed_at?: string | null
+          processing_attempts?: number
+          provider?: string
+          received_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          event_code?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          processed_at?: string | null
+          processing_attempts?: number
+          provider?: string
+          received_at?: string
+          status?: string
         }
         Relationships: []
       }
@@ -702,6 +795,30 @@ export type Database = {
           state_name?: string
           top_marginal_rate?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      webhook_processing_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          event_id: string
+          id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          event_id: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          event_id?: string
+          id?: string
         }
         Relationships: []
       }
