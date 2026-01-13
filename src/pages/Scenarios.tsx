@@ -27,6 +27,7 @@ import { PropertySummaryCard } from '@/components/scenarios/PropertySummaryCard'
 import { HomeEquityChart } from '@/components/scenarios/HomeEquityChart';
 import { RetirementCoach } from '@/components/scenarios/RetirementCoach';
 import { CategoryInsightsPanel } from '@/components/scenarios/CategoryInsightsPanel';
+import { IntegratedVisualDashboard } from '@/components/scenarios/IntegratedVisualDashboard';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { useProperties } from '@/hooks/useProperties';
 import { useStateTaxRules } from '@/hooks/useStateTaxRules';
@@ -63,6 +64,12 @@ export default function Scenarios() {
   const [saving, setSaving] = useState(false);
   const [moneyFlowsDialogOpen, setMoneyFlowsDialogOpen] = useState(false);
   
+  // Live adjustment state for real-time chart updates
+  const [liveInflation, setLiveInflation] = useState(2.5);
+  const [liveMedicalInflation, setLiveMedicalInflation] = useState(3.36);
+  const [liveExpectedReturn, setLiveExpectedReturn] = useState(6.0);
+  const [liveDestinationState, setLiveDestinationState] = useState<string | undefined>(undefined);
+  
   // Use the portfolio data bridge hook
   const portfolio = usePortfolioData();
   
@@ -70,7 +77,15 @@ export default function Scenarios() {
   const { primaryResidence, totalEquity, totalPropertyValue } = useProperties();
   
   // Fetch state tax rules for coach
-  const { getRule } = useStateTaxRules();
+  const { getRule, rules: stateTaxRules } = useStateTaxRules();
+  
+  // Build state options for relocation selector
+  const stateOptions = useMemo(() => {
+    return stateTaxRules.map(rule => ({
+      code: rule.state_code,
+      name: rule.state_name,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [stateTaxRules]);
   
   // Fetch user rate assumptions
   const { assumptions: rateAssumptions } = useRateAssumptions();
@@ -365,6 +380,38 @@ export default function Scenarios() {
         <RetirementCoach planSummary={coachPlanSummary} />
       </div>
 
+      {/* Integrated Visual Dashboard - Split View Layout */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Live Planning Dashboard</h2>
+          <p className="text-sm text-muted-foreground">Adjust rates to see real-time impact on projections</p>
+        </div>
+        <IntegratedVisualDashboard
+          currentAge={formValues.current_age}
+          retirementAge={formValues.retirement_age}
+          monthlySpending={formValues.monthly_retirement_spending}
+          annualContribution={formValues.annual_contribution}
+          currentSavings={currentSavings}
+          socialSecurityIncome={(scenario as any)?.social_security_income || 24000}
+          inflationRate={liveInflation}
+          medicalInflation={liveMedicalInflation}
+          expectedReturn={liveExpectedReturn}
+          currentState="GA"
+          destinationState={liveDestinationState}
+          successRate={simulationResult?.successRate || 0}
+          simulationMedian={simulationResult?.percentiles?.p50}
+          homeValue={primaryResidence?.estimated_value}
+          propertyTaxRate={1.1}
+          stateOptions={stateOptions}
+          onInflationChange={setLiveInflation}
+          onMedicalInflationChange={setLiveMedicalInflation}
+          onExpectedReturnChange={setLiveExpectedReturn}
+          onDestinationStateChange={setLiveDestinationState}
+          onRunSimulation={runSimulation}
+          isSimulating={simulating}
+        />
+      </div>
+
       {/* Category Insight Charts - Income, Expenses, Debt */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -383,7 +430,7 @@ export default function Scenarios() {
               median: simulationResult.percentiles.p50[i] || 0,
             }))
           ] : undefined}
-          medicalInflation={rateAssumptions.find(r => r.name === 'Medical Inflation')?.user_optimistic || 3.36}
+          medicalInflation={liveMedicalInflation}
           propertyTaxRate={1.1}
           homeValue={primaryResidence?.estimated_value || 500000}
         />
