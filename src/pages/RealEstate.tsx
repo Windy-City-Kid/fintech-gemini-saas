@@ -14,6 +14,7 @@ import { useProperties, PropertyFormData } from '@/hooks/useProperties';
 import { useSubscription } from '@/hooks/useSubscription';
 import { UpgradeModal } from '@/components/dashboard/UpgradeModal';
 import { TaxProfileCard } from '@/components/scenarios/TaxProfileCard';
+import { RelocationExplorer } from '@/components/scenarios/RelocationExplorer';
 import { useStateTaxRules } from '@/hooks/useStateTaxRules';
 
 const formatCurrency = (amount: number) => {
@@ -538,6 +539,23 @@ export default function RealEstate() {
             </div>
           </div>
         )}
+
+        {/* Relocation Savings Explorer */}
+        <RelocationExplorer
+          currentState="GA"
+          currentAge={55}
+          retirementAge={65}
+          monthlySpending={8000}
+          portfolioValue={totalEquity + 500000}
+          ssIncome={36000}
+          homeEquity={totalEquity}
+          onSelectDestination={(stateCode) => {
+            if (primaryResidence) {
+              setFutureChanges(prev => ({ ...prev, relocation_state: stateCode }));
+              setShowFutureChanges(true);
+            }
+          }}
+        />
       </div>
 
       {/* Edit Dialog */}

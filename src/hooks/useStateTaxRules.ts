@@ -6,11 +6,14 @@ export interface StateTaxRule {
   state_code: string;
   state_name: string;
   base_rate: number;
+  top_marginal_rate: number;
   rate_type: 'flat' | 'graduated' | 'none';
   social_security_taxable: boolean;
+  ss_exemption_threshold_joint: number | null;
   retirement_exclusion_amount: number;
   pension_exclusion_type: 'none' | 'federal' | 'state' | 'private' | 'all';
   retirement_friendliness: 'excellent' | 'good' | 'neutral' | 'poor';
+  col_multiplier: number;
   notes: string | null;
 }
 
