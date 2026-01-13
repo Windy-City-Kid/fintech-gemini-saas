@@ -375,12 +375,16 @@ export type Database = {
       scenarios: {
         Row: {
           annual_contribution: number | null
+          cached_estate_value: number | null
+          cached_success_rate: number | null
           created_at: string
           current_age: number | null
           expected_return: number
+          forecast_mode: string | null
           id: string
           inflation_rate: number
           is_active: boolean | null
+          is_baseline: boolean | null
           is_married: boolean | null
           monthly_retirement_spending: number | null
           primary_claiming_age: number | null
@@ -395,18 +399,23 @@ export type Database = {
           spouse_fra: number | null
           spouse_life_expectancy: number | null
           spouse_pia: number | null
+          total_lifetime_taxes: number | null
           updated_at: string
           user_id: string
           withdrawal_order: string[] | null
         }
         Insert: {
           annual_contribution?: number | null
+          cached_estate_value?: number | null
+          cached_success_rate?: number | null
           created_at?: string
           current_age?: number | null
           expected_return?: number
+          forecast_mode?: string | null
           id?: string
           inflation_rate?: number
           is_active?: boolean | null
+          is_baseline?: boolean | null
           is_married?: boolean | null
           monthly_retirement_spending?: number | null
           primary_claiming_age?: number | null
@@ -421,18 +430,23 @@ export type Database = {
           spouse_fra?: number | null
           spouse_life_expectancy?: number | null
           spouse_pia?: number | null
+          total_lifetime_taxes?: number | null
           updated_at?: string
           user_id: string
           withdrawal_order?: string[] | null
         }
         Update: {
           annual_contribution?: number | null
+          cached_estate_value?: number | null
+          cached_success_rate?: number | null
           created_at?: string
           current_age?: number | null
           expected_return?: number
+          forecast_mode?: string | null
           id?: string
           inflation_rate?: number
           is_active?: boolean | null
+          is_baseline?: boolean | null
           is_married?: boolean | null
           monthly_retirement_spending?: number | null
           primary_claiming_age?: number | null
@@ -447,6 +461,7 @@ export type Database = {
           spouse_fra?: number | null
           spouse_life_expectancy?: number | null
           spouse_pia?: number | null
+          total_lifetime_taxes?: number | null
           updated_at?: string
           user_id?: string
           withdrawal_order?: string[] | null
