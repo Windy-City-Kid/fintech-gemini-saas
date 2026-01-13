@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -41,7 +42,9 @@ import { useRothConversion, RothConversionInputs } from '@/hooks/useRothConversi
 import { RothConversionChart } from './RothConversionChart';
 import { RothLifetimeTaxChart } from './RothLifetimeTaxChart';
 import { RMDImpactChart } from './RMDImpactChart';
+import { HeirImpactMode } from './HeirImpactMode';
 import { IRMAAWarningModal, useIRMAAAlert } from './IRMAAWarningModal';
+import { AskAIButton } from '@/components/advisor/AskAIButton';
 import { cn } from '@/lib/utils';
 import { checkIRMAABracketChange, getNextIRMAAThreshold } from '@/lib/medicareCalculator';
 
@@ -401,75 +404,117 @@ export function RothConversionExplorer() {
 
         {/* Charts */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Annual Conversion Chart */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Annual Conversion Strategy
-              </CardTitle>
-              <CardDescription>
-                Optimal conversion amounts by year, prioritizing highest-return accounts
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {strategy && strategy.years.length > 0 ? (
-                <RothConversionChart years={strategy.years} />
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  <p>No conversion opportunities found with current parameters</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <Tabs defaultValue="strategy" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="strategy">Your Strategy</TabsTrigger>
+              <TabsTrigger value="heirImpact" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Heir Impact
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Lifetime Tax Comparison */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Lifetime Tax Comparison
-              </CardTitle>
-              <CardDescription>
-                Side-by-side: taxes with conversions vs. baseline (no conversions)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {strategy ? (
-                <RothLifetimeTaxChart 
-                  lifetimeTaxWithConversions={strategy.lifetimeTaxWithConversions}
-                  lifetimeTaxBaseline={strategy.lifetimeTaxBaseline}
-                  conversionTaxPaid={strategy.totalTaxPaid}
-                />
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  <p>Adjust parameters to see comparison</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            <TabsContent value="strategy" className="space-y-6">
+              {/* Annual Conversion Chart */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        Annual Conversion Strategy
+                      </CardTitle>
+                      <CardDescription>
+                        Optimal conversion amounts by year, prioritizing highest-return accounts
+                      </CardDescription>
+                    </div>
+                    {strategy && strategy.years.length > 0 && (
+                      <AskAIButton
+                        chartType="rothConversion"
+                        chartTitle="Roth Conversion Strategy"
+                        chartData={{
+                          totalConverted: strategy.totalConverted,
+                          totalTaxPaid: strategy.totalTaxPaid,
+                          lifetimeTaxSavings: strategy.lifetimeTaxSavings,
+                          spendableWealthIncrease: strategy.spendableWealthIncrease,
+                          heirsTaxReductionPercent: strategy.heirsTaxReductionPercent,
+                          yearsWithConversions: strategy.years.length,
+                          averageAnnualConversion: strategy.totalConverted / strategy.years.length,
+                        }}
+                      />
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {strategy && strategy.years.length > 0 ? (
+                    <RothConversionChart years={strategy.years} />
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-muted-foreground">
+                      <p>No conversion opportunities found with current parameters</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-          {/* RMD Impact Chart */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <PiggyBank className="h-4 w-4" />
-                RMD Reduction Impact
-              </CardTitle>
-              <CardDescription>
-                How conversions reduce your future Required Minimum Distributions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {strategy && strategy.years.length > 0 ? (
-                <RMDImpactChart years={strategy.years} />
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  <p>No RMD data available</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              {/* Lifetime Tax Comparison */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Lifetime Tax Comparison
+                  </CardTitle>
+                  <CardDescription>
+                    Side-by-side: taxes with conversions vs. baseline (no conversions)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {strategy ? (
+                    <RothLifetimeTaxChart 
+                      lifetimeTaxWithConversions={strategy.lifetimeTaxWithConversions}
+                      lifetimeTaxBaseline={strategy.lifetimeTaxBaseline}
+                      conversionTaxPaid={strategy.totalTaxPaid}
+                    />
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-muted-foreground">
+                      <p>Adjust parameters to see comparison</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* RMD Impact Chart */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <PiggyBank className="h-4 w-4" />
+                    RMD Reduction Impact
+                  </CardTitle>
+                  <CardDescription>
+                    How conversions reduce your future Required Minimum Distributions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {strategy && strategy.years.length > 0 ? (
+                    <RMDImpactChart years={strategy.years} />
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-muted-foreground">
+                      <p>No RMD data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="heirImpact">
+              <HeirImpactMode
+                traditionalBalance={strategy?.years.reduce((sum, y) => sum + y.conversionAmount, 0) || 500000}
+                rothBalance={strategy?.totalConverted || 0}
+                yourCurrentTaxRate={inputs.targetBracket}
+                yourAge={inputs.currentAge}
+                heirAge={40}
+                heirMarginalRate={0.35}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
