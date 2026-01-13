@@ -211,6 +211,21 @@ async function captureElement(elementId: string, scale = 2): Promise<string | nu
   }
 }
 
+async function loadLogoAsBase64(): Promise<string | null> {
+  try {
+    const response = await fetch('/images/logo.png');
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 // ============ PDF PAGE GENERATORS ============
 
 function addWatermark(pdf: jsPDF, pageWidth: number, pageHeight: number) {
@@ -280,25 +295,44 @@ function generatePage1CoverAndScore(
   data: ProfessionalReportData,
   pageWidth: number,
   pageHeight: number,
-  margin: number
+  margin: number,
+  logoBase64: string | null
 ) {
-  // Dark background
-  pdf.setFillColor(...COLORS.secondary);
+  // Dark background - match the logo's navy color
+  pdf.setFillColor(26, 32, 56); // Navy matching logo background
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
   
   // Decorative elements
-  pdf.setFillColor(30, 40, 60);
+  pdf.setFillColor(35, 42, 70);
   pdf.circle(pageWidth * 0.8, pageHeight * 0.2, 80, 'F');
-  pdf.setFillColor(25, 35, 55);
+  pdf.setFillColor(30, 38, 62);
   pdf.circle(pageWidth * 0.2, pageHeight * 0.8, 60, 'F');
   
-  // Logo
-  pdf.setFillColor(...COLORS.primary);
-  pdf.circle(pageWidth / 2, 45, 18, 'F');
-  pdf.setTextColor(...COLORS.white);
-  pdf.setFontSize(20);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('PP', pageWidth / 2, 50, { align: 'center' });
+  // Logo - embed the actual image
+  if (logoBase64) {
+    try {
+      // Logo dimensions - centered, appropriately sized
+      const logoWidth = 70;
+      const logoHeight = 50;
+      pdf.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 20, logoWidth, logoHeight);
+    } catch (e) {
+      // Fallback to text if image fails
+      pdf.setFillColor(...COLORS.primary);
+      pdf.circle(pageWidth / 2, 45, 18, 'F');
+      pdf.setTextColor(...COLORS.white);
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('GON', pageWidth / 2, 50, { align: 'center' });
+    }
+  } else {
+    // Fallback placeholder
+    pdf.setFillColor(...COLORS.primary);
+    pdf.circle(pageWidth / 2, 45, 18, 'F');
+    pdf.setTextColor(...COLORS.white);
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('GON', pageWidth / 2, 50, { align: 'center' });
+  }
   
   // Title
   let y = 85;
@@ -930,8 +964,11 @@ export async function generateProfessionalReport(
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
   
+  // Load logo
+  const logoBase64 = await loadLogoAsBase64();
+  
   // Page 1: Cover with Success Score
-  generatePage1CoverAndScore(pdf, data, pageWidth, pageHeight, margin);
+  generatePage1CoverAndScore(pdf, data, pageWidth, pageHeight, margin, logoBase64);
   
   // Page 2: Net Worth Statement
   pdf.addPage();
