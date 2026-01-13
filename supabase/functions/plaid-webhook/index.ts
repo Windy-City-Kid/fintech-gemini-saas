@@ -329,6 +329,163 @@ async function fetchBalances(
 }
 
 /**
+ * Guyton-Klinger Guardrail Configuration
+ */
+interface GuardrailConfig {
+  initialWithdrawalRate: number;
+  upperGuardrailMultiplier: number;
+  lowerGuardrailMultiplier: number;
+  spendingAdjustment: number;
+}
+
+const DEFAULT_GUARDRAIL_CONFIG: GuardrailConfig = {
+  initialWithdrawalRate: 0.05,
+  upperGuardrailMultiplier: 0.8,
+  lowerGuardrailMultiplier: 1.2,
+  spendingAdjustment: 0.10,
+};
+
+type SpendingZone = 'prosperity' | 'safe' | 'caution';
+
+/**
+ * Calculate guardrail status for a user after portfolio sync
+ */
+function calculateGuardrailStatus(
+  currentPortfolioValue: number,
+  initialPortfolioValue: number,
+  monthlySpending: number,
+  config: GuardrailConfig = DEFAULT_GUARDRAIL_CONFIG
+): {
+  currentWithdrawalRate: number;
+  initialWithdrawalRate: number;
+  upperGuardrail: number;
+  lowerGuardrail: number;
+  zone: SpendingZone;
+  safeSpendingMonthly: number;
+  adjustedSpendingMonthly: number;
+  adjustmentAmount: number;
+} {
+  const annualSpending = monthlySpending * 12;
+  
+  const initialWithdrawalRate = initialPortfolioValue > 0 
+    ? annualSpending / initialPortfolioValue 
+    : 0;
+  
+  const currentWithdrawalRate = currentPortfolioValue > 0 
+    ? annualSpending / currentPortfolioValue 
+    : 1;
+  
+  const upperGuardrail = initialWithdrawalRate * config.upperGuardrailMultiplier;
+  const lowerGuardrail = initialWithdrawalRate * config.lowerGuardrailMultiplier;
+  
+  // Determine zone
+  let zone: SpendingZone = 'safe';
+  if (currentWithdrawalRate < upperGuardrail) {
+    zone = 'prosperity';
+  } else if (currentWithdrawalRate > lowerGuardrail) {
+    zone = 'caution';
+  }
+  
+  // Calculate adjustment
+  let adjustedSpendingMonthly = monthlySpending;
+  if (zone === 'prosperity') {
+    adjustedSpendingMonthly = monthlySpending * (1 + config.spendingAdjustment);
+  } else if (zone === 'caution') {
+    adjustedSpendingMonthly = monthlySpending * (1 - config.spendingAdjustment);
+  }
+  
+  return {
+    currentWithdrawalRate,
+    initialWithdrawalRate,
+    upperGuardrail,
+    lowerGuardrail,
+    zone,
+    safeSpendingMonthly: monthlySpending,
+    adjustedSpendingMonthly,
+    adjustmentAmount: adjustedSpendingMonthly - monthlySpending,
+  };
+}
+
+/**
+ * Calculate and store guardrail snapshot after portfolio sync
+ */
+async function calculateAndStoreGuardrails(
+  supabaseAdmin: AdminClient,
+  userId: string,
+  newPortfolioValue: number,
+  triggeredBy: string = 'plaid_sync'
+): Promise<void> {
+  try {
+    console.log(`📊 Calculating guardrails for user: ${userId}`);
+    
+    // Get user's active scenario for spending data
+    const { data: scenario, error: scenarioError } = await supabaseAdmin
+      .from('scenarios')
+      .select('monthly_retirement_spending')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+    
+    if (scenarioError || !scenario) {
+      console.log('No active scenario found, skipping guardrail calculation');
+      return;
+    }
+    
+    const monthlySpending = (scenario.monthly_retirement_spending as number) || 5000;
+    
+    // Get the first snapshot as "initial portfolio" baseline
+    // or use current value if no history exists
+    const { data: firstSnapshot } = await supabaseAdmin
+      .from('guardrail_snapshots')
+      .select('portfolio_value')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+    
+    const initialPortfolioValue = firstSnapshot 
+      ? (firstSnapshot.portfolio_value as number) 
+      : newPortfolioValue;
+    
+    // Calculate guardrail status
+    const status = calculateGuardrailStatus(
+      newPortfolioValue,
+      initialPortfolioValue,
+      monthlySpending
+    );
+    
+    // Store the snapshot
+    const { error: insertError } = await supabaseAdmin
+      .from('guardrail_snapshots')
+      .insert({
+        user_id: userId,
+        portfolio_value: newPortfolioValue,
+        initial_portfolio_value: initialPortfolioValue,
+        monthly_spending: monthlySpending,
+        current_withdrawal_rate: status.currentWithdrawalRate,
+        initial_withdrawal_rate: status.initialWithdrawalRate,
+        upper_guardrail: status.upperGuardrail,
+        lower_guardrail: status.lowerGuardrail,
+        zone: status.zone,
+        safe_spending_monthly: status.safeSpendingMonthly,
+        adjusted_spending_monthly: status.adjustedSpendingMonthly,
+        adjustment_amount: status.adjustmentAmount,
+        triggered_by: triggeredBy,
+      });
+    
+    if (insertError) {
+      console.error('Failed to store guardrail snapshot:', insertError);
+      return;
+    }
+    
+    console.log(`✅ Guardrail snapshot stored: Zone=${status.zone}, Rate=${(status.currentWithdrawalRate * 100).toFixed(2)}%`);
+  } catch (error) {
+    console.error('Error calculating guardrails:', error);
+  }
+}
+
+/**
  * Part 3: Background Processing Task
  * Processes the webhook payload asynchronously
  */
@@ -388,11 +545,16 @@ async function processWebhookPayload(
 
     // Update each account's balance
     let updatedCount = 0;
+    let totalPortfolioValue = 0;
+    
     for (const plaidAccount of balanceData.accounts) {
+      const balance = plaidAccount.balances.current || 0;
+      totalPortfolioValue += balance;
+      
       const { error: updateError } = await supabaseAdmin
         .from("accounts")
         .update({
-          current_balance: plaidAccount.balances.current || 0,
+          current_balance: balance,
           last_synced_at: new Date().toISOString(),
         })
         .eq("plaid_item_id", item_id as string);
@@ -406,6 +568,14 @@ async function processWebhookPayload(
 
     console.log(`✅ Successfully updated ${updatedCount} accounts`);
 
+    // Calculate and store guardrail status after balance sync
+    await calculateAndStoreGuardrails(
+      supabaseAdmin,
+      userId,
+      totalPortfolioValue,
+      'plaid_sync'
+    );
+
     // Update event status to processed
     await updateEventStatus(supabaseAdmin, eventId, "processed");
 
@@ -414,6 +584,8 @@ async function processWebhookPayload(
       accountsUpdated: updatedCount,
       itemId: item_id,
       userId,
+      totalPortfolioValue,
+      guardrailsCalculated: true,
     });
 
     console.log(`🎉 Background processing completed for event: ${eventId}`);

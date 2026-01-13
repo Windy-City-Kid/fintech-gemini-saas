@@ -2,7 +2,7 @@
  * useGuardrails Hook
  * 
  * Manages Guyton-Klinger spending guardrails state,
- * integrating with portfolio data and scenarios.
+ * integrating with portfolio data, scenarios, and real-time Plaid sync.
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,7 +14,6 @@ import {
   GuardrailConfig,
   calculateGuardrailStatus,
   simulateMarketShock,
-  calculateSafeSpendingTarget,
   generateGuardrailNudge,
   DEFAULT_CONFIG,
 } from '@/lib/guardrailsEngine';
@@ -32,6 +31,16 @@ interface Scenario {
   retirement_age: number;
 }
 
+interface GuardrailSnapshot {
+  id: string;
+  portfolio_value: number;
+  initial_portfolio_value: number;
+  monthly_spending: number;
+  zone: 'prosperity' | 'safe' | 'caution';
+  created_at: string;
+  triggered_by: string;
+}
+
 interface UseGuardrailsResult {
   status: GuardrailStatus | null;
   shockResult: MarketShockResult | null;
@@ -41,6 +50,7 @@ interface UseGuardrailsResult {
   monthlySpending: number;
   config: GuardrailConfig;
   nudgeMessage: string | null;
+  latestSnapshot: GuardrailSnapshot | null;
   simulateShock: (shockPercent: number) => void;
   updateConfig: (config: Partial<GuardrailConfig>) => void;
   refresh: () => Promise<void>;
@@ -54,6 +64,7 @@ export function useGuardrails(): UseGuardrailsResult {
   const [config, setConfig] = useState<GuardrailConfig>(DEFAULT_CONFIG);
   const [shockPercent, setShockPercent] = useState<number | null>(null);
   const [legacyGoal, setLegacyGoal] = useState<number | null>(null);
+  const [latestSnapshot, setLatestSnapshot] = useState<GuardrailSnapshot | null>(null);
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -82,9 +93,19 @@ export function useGuardrails(): UseGuardrailsResult {
         .eq('user_id', user.id)
         .single();
       
+      // Fetch latest guardrail snapshot from webhook sync
+      const { data: snapshotData } = await supabase
+        .from('guardrail_snapshots')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
       if (accountsData) setAccounts(accountsData);
       if (scenariosData && scenariosData[0]) setScenario(scenariosData[0]);
       if (profileData) setLegacyGoal(profileData.legacy_goal_amount);
+      if (snapshotData) setLatestSnapshot(snapshotData as unknown as GuardrailSnapshot);
     } catch (error) {
       console.error('Failed to fetch guardrails data:', error);
     } finally {
@@ -96,23 +117,63 @@ export function useGuardrails(): UseGuardrailsResult {
     fetchData();
   }, [fetchData]);
 
-  // Calculate portfolio value
-  const portfolioValue = useMemo(() => {
-    return accounts.reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
-  }, [accounts]);
+  // Subscribe to realtime guardrail updates from Plaid sync
+  useEffect(() => {
+    if (!user) return;
 
-  // Initial portfolio value (use current as baseline for now)
-  // In production, this would come from a stored "retirement start" snapshot
+    const channel = supabase
+      .channel('guardrail-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'guardrail_snapshots',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('📊 New guardrail snapshot received:', payload);
+          setLatestSnapshot(payload.new as unknown as GuardrailSnapshot);
+          // Refresh accounts data to sync with latest balances
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchData]);
+
+  // Calculate portfolio value - prefer snapshot if available and recent
+  const portfolioValue = useMemo(() => {
+    // If we have a recent snapshot from webhook, use that
+    if (latestSnapshot) {
+      const snapshotAge = Date.now() - new Date(latestSnapshot.created_at).getTime();
+      const ONE_HOUR = 60 * 60 * 1000;
+      if (snapshotAge < ONE_HOUR) {
+        return latestSnapshot.portfolio_value;
+      }
+    }
+    // Otherwise calculate from accounts
+    return accounts.reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
+  }, [accounts, latestSnapshot]);
+
+  // Initial portfolio value - use snapshot history or current
   const initialPortfolioValue = useMemo(() => {
-    // For now, we'll estimate based on current value
-    // Ideally, this is stored when retirement begins
+    if (latestSnapshot) {
+      return latestSnapshot.initial_portfolio_value;
+    }
     return portfolioValue;
-  }, [portfolioValue]);
+  }, [portfolioValue, latestSnapshot]);
 
   // Monthly spending from scenario
   const monthlySpending = useMemo(() => {
+    if (latestSnapshot) {
+      return latestSnapshot.monthly_spending;
+    }
     return scenario?.monthly_retirement_spending || 5000;
-  }, [scenario]);
+  }, [scenario, latestSnapshot]);
 
   // Calculate guardrail status
   const status = useMemo(() => {
@@ -164,6 +225,7 @@ export function useGuardrails(): UseGuardrailsResult {
     monthlySpending,
     config,
     nudgeMessage,
+    latestSnapshot,
     simulateShock,
     updateConfig,
     refresh: fetchData,
