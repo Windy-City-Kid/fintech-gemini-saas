@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { CreditCard, Home, Car, GraduationCap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Debt {
   id: string;
@@ -39,6 +40,7 @@ const getDebtIcon = (type: string) => {
 
 export default function Debts() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [debts, setDebts] = useState<Debt[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -87,7 +89,7 @@ export default function Debts() {
         description="Track and manage your outstanding debts"
         previousPage={{ label: 'Home and Real Estate', path: '/real-estate' }}
         nextPage={{ label: 'Income', path: '/income' }}
-        onManageConnections={() => window.location.href = '/connections'}
+        onManageConnections={() => navigate('/connections')}
       >
         {/* Summary Card */}
         <Card className="bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20">
