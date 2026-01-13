@@ -14,6 +14,7 @@ export interface StateTaxRule {
   pension_exclusion_type: 'none' | 'federal' | 'state' | 'private' | 'all';
   retirement_friendliness: 'excellent' | 'good' | 'neutral' | 'poor';
   col_multiplier: number;
+  property_tax_rate: number;
   notes: string | null;
 }
 

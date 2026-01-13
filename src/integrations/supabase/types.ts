@@ -461,6 +461,7 @@ export type Database = {
           id: string
           notes: string | null
           pension_exclusion_type: string | null
+          property_tax_rate: number | null
           rate_type: string
           retirement_exclusion_amount: number | null
           retirement_friendliness: string | null
@@ -478,6 +479,7 @@ export type Database = {
           id?: string
           notes?: string | null
           pension_exclusion_type?: string | null
+          property_tax_rate?: number | null
           rate_type?: string
           retirement_exclusion_amount?: number | null
           retirement_friendliness?: string | null
@@ -495,6 +497,7 @@ export type Database = {
           id?: string
           notes?: string | null
           pension_exclusion_type?: string | null
+          property_tax_rate?: number | null
           rate_type?: string
           retirement_exclusion_amount?: number | null
           retirement_friendliness?: string | null

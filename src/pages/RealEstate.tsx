@@ -549,6 +549,7 @@ export default function RealEstate() {
           portfolioValue={totalEquity + 500000}
           ssIncome={36000}
           homeEquity={totalEquity}
+          homeValue={totalPropertyValue || 500000}
           onSelectDestination={(stateCode) => {
             if (primaryResidence) {
               setFutureChanges(prev => ({ ...prev, relocation_state: stateCode }));
