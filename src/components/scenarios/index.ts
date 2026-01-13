@@ -22,6 +22,12 @@ export { ScenarioManager } from './ScenarioManager';
 export { ScenarioComparisonChart } from './ScenarioComparisonChart';
 export { ScenarioKPIComparison } from './ScenarioKPIComparison';
 
+// Roth Conversion Strategy
+export { RothConversionExplorer } from './RothConversionExplorer';
+export { RothConversionChart } from './RothConversionChart';
+export { RothLifetimeTaxChart } from './RothLifetimeTaxChart';
+export { RMDImpactChart } from './RMDImpactChart';
+
 // Other Components
 export { SocialSecurityStrategy } from './SocialSecurityStrategy';
 export { MedicalCostWatch } from './MedicalCostWatch';

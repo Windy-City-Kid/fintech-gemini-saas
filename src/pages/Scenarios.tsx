@@ -33,6 +33,7 @@ import { IntegratedVisualDashboard } from '@/components/scenarios/IntegratedVisu
 import { ScenarioManager } from '@/components/scenarios/ScenarioManager';
 import { ScenarioComparisonChart } from '@/components/scenarios/ScenarioComparisonChart';
 import { ScenarioKPIComparison } from '@/components/scenarios/ScenarioKPIComparison';
+import { RothConversionExplorer } from '@/components/scenarios/RothConversionExplorer';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { useProperties } from '@/hooks/useProperties';
 import { useStateTaxRules } from '@/hooks/useStateTaxRules';
@@ -446,6 +447,11 @@ export default function Scenarios() {
           onRunSimulation={runSimulation}
           isSimulating={simulating}
         />
+      </div>
+
+      {/* Roth Conversion Strategy Explorer */}
+      <div className="mb-8">
+        <RothConversionExplorer />
       </div>
 
       {/* Category Insight Charts - Income, Expenses, Debt */}
