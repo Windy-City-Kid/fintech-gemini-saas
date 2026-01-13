@@ -7,3 +7,5 @@ export { WealthTransferSankey } from './WealthTransferSankey';
 export { BeneficiariesTable } from './BeneficiariesTable';
 export { ProbabilisticEstateReport } from './ProbabilisticEstateReport';
 export { CharitableBequestsManager } from './CharitableBequestsManager';
+export { EstateStateSelector } from './EstateStateSelector';
+export { LegacyTimeline } from './LegacyTimeline';
