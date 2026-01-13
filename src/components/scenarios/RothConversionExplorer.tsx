@@ -4,7 +4,7 @@
  * Comprehensive visualization and planning tool for Roth conversion strategies
  */
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowRightLeft, 
   TrendingUp, 
@@ -16,6 +16,7 @@ import {
   Users,
   Info,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,9 @@ import { useRothConversion, RothConversionInputs } from '@/hooks/useRothConversi
 import { RothConversionChart } from './RothConversionChart';
 import { RothLifetimeTaxChart } from './RothLifetimeTaxChart';
 import { RMDImpactChart } from './RMDImpactChart';
+import { IRMAAWarningModal, useIRMAAAlert } from './IRMAAWarningModal';
 import { cn } from '@/lib/utils';
+import { checkIRMAABracketChange, getNextIRMAAThreshold } from '@/lib/medicareCalculator';
 
 const TAX_BRACKETS = [
   { value: 0.10, label: '10%' },
@@ -59,6 +62,29 @@ export function RothConversionExplorer() {
     strategy,
     stateOptions,
   } = useRothConversion();
+  
+  // IRMAA alert state
+  const [showIRMAAWarning, setShowIRMAAWarning] = useState(false);
+  const isMarried = inputs.filingStatus === 'married_filing_jointly';
+  
+  // Calculate base MAGI for IRMAA checking (SS income + other income during retirement)
+  const baseMAGI = useMemo(() => {
+    return inputs.socialSecurityIncome * 0.85 + (inputs.annualIncome * 0.3); // Simplified estimate
+  }, [inputs.socialSecurityIncome, inputs.annualIncome]);
+  
+  // Check if first year conversion would trigger IRMAA change
+  const firstYearConversion = strategy?.years[0]?.conversionAmount || 0;
+  const irmaaCheck = useMemo(() => {
+    if (firstYearConversion > 0) {
+      return checkIRMAABracketChange(baseMAGI, firstYearConversion, isMarried);
+    }
+    return null;
+  }, [baseMAGI, firstYearConversion, isMarried]);
+  
+  // IRMAA headroom
+  const irmaaHeadroom = useMemo(() => {
+    return getNextIRMAAThreshold(baseMAGI, isMarried);
+  }, [baseMAGI, isMarried]);
   
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
@@ -91,6 +117,49 @@ export function RothConversionExplorer() {
           </div>
         </CardHeader>
       </Card>
+
+      {/* IRMAA Warning Alert */}
+      {irmaaCheck && (
+        <Card className="bg-amber-500/10 border-amber-500/30">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  IRMAA Bracket Alert
+                </h4>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your first year conversion of <strong>{formatCurrency(firstYearConversion)}</strong> will 
+                  push you from <Badge variant="outline" className="mx-1">{irmaaCheck.previousBracket.label}</Badge> 
+                  to <Badge variant="destructive" className="mx-1">{irmaaCheck.newBracket.label}</Badge>, 
+                  increasing annual Medicare premiums by <strong className="text-red-600">{formatCurrency(irmaaCheck.annualPremiumIncrease)}</strong>.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2"
+                  onClick={() => setShowIRMAAWarning(true)}
+                >
+                  View Details
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* IRMAA Warning Modal */}
+      <IRMAAWarningModal
+        open={showIRMAAWarning}
+        onOpenChange={setShowIRMAAWarning}
+        bracketChange={irmaaCheck}
+        currentMAGI={baseMAGI}
+        proposedAmount={firstYearConversion}
+        transactionType="roth_conversion"
+        isMarried={isMarried}
+        onProceed={() => setShowIRMAAWarning(false)}
+        onCancel={() => setShowIRMAAWarning(false)}
+      />
 
       {/* "Aha!" Metric Summary */}
       {strategy && strategy.years.length > 0 && (
