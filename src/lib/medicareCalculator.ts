@@ -344,3 +344,171 @@ export function projectIRMAAImpacts(
   
   return projections;
 }
+
+// ============= 2026 HEALTH STATUS ENGINE =============
+
+export type HealthCondition = 'excellent' | 'good' | 'poor';
+export type MedicareChoice = 'advantage' | 'medigap';
+
+/** Health condition incidentals budget per year */
+export const HEALTH_INCIDENTALS: Record<HealthCondition, number> = {
+  excellent: 1000,  // Dental/vision/hearing only
+  good: 4000,       // Coinsurance and deductibles
+  poor: 10000,      // Higher utilization + Part D cap hit
+};
+
+/** Part D prescription drug out-of-pocket cap (triggered for poor health) */
+export const PART_D_PRESCRIPTION_CAP = 2100;
+
+/** End-of-life cost multiplier (final 3 years before target age) */
+export const END_OF_LIFE_MULTIPLIER = 2.5; // 150% increase = 2.5x baseline
+
+export interface HealthcareBreakdown {
+  monthlyPartBPremium: number;
+  monthlyPartDPremium: number;
+  totalMonthlyPremiums: number;
+  annualPremiums: number;
+  annualIncidentals: number;
+  partDCap: number;
+  totalAnnualLiability: number;
+  healthMultiplier: number;
+  isEndOfLife: boolean;
+  endOfLifeMultiplier: number;
+}
+
+/**
+ * Calculate comprehensive healthcare breakdown based on health status
+ */
+export function calculateHealthcareBreakdown(
+  healthCondition: HealthCondition,
+  medicareChoice: MedicareChoice,
+  magi: number,
+  isMarried: boolean,
+  currentAge: number,
+  targetAge: number = 100,
+  yearsFromBase: number = 0,
+  medicalInflationRate: number = MEDICAL_INFLATION_HISTORICAL
+): HealthcareBreakdown {
+  // Skip if not Medicare eligible
+  if (currentAge < 65) {
+    return {
+      monthlyPartBPremium: 0,
+      monthlyPartDPremium: 0,
+      totalMonthlyPremiums: 0,
+      annualPremiums: 0,
+      annualIncidentals: 0,
+      partDCap: 0,
+      totalAnnualLiability: 0,
+      healthMultiplier: 1.0,
+      isEndOfLife: false,
+      endOfLifeMultiplier: 1.0,
+    };
+  }
+
+  // Get IRMAA-adjusted premiums
+  const irmaa = calculateIRMAA(magi, isMarried);
+  
+  // Apply medical inflation
+  const inflatedPartB = projectMedicareCosts(irmaa.monthlyPartB, yearsFromBase, medicalInflationRate);
+  const inflatedPartD = projectMedicareCosts(irmaa.monthlyPartD, yearsFromBase, medicalInflationRate);
+  
+  // Medigap Plan G typically costs ~$150-250/mo more than MA
+  const medigapSurcharge = medicareChoice === 'medigap' ? 175 : 0;
+  
+  const monthlyPartBPremium = inflatedPartB;
+  const monthlyPartDPremium = inflatedPartD + medigapSurcharge;
+  const totalMonthlyPremiums = monthlyPartBPremium + monthlyPartDPremium;
+  const annualPremiums = totalMonthlyPremiums * 12;
+  
+  // Health condition incidentals (inflate over time)
+  const baseIncidentals = HEALTH_INCIDENTALS[healthCondition];
+  const annualIncidentals = projectMedicareCosts(baseIncidentals, yearsFromBase, medicalInflationRate);
+  
+  // Part D cap applies to poor health
+  const partDCap = healthCondition === 'poor' 
+    ? projectMedicareCosts(PART_D_PRESCRIPTION_CAP, yearsFromBase, medicalInflationRate)
+    : 0;
+  
+  // End-of-life spike: final 3 years before target age
+  const yearsToTarget = targetAge - currentAge;
+  const isEndOfLife = yearsToTarget <= 3 && yearsToTarget >= 0;
+  const endOfLifeMultiplier = isEndOfLife ? END_OF_LIFE_MULTIPLIER : 1.0;
+  
+  // Health condition multiplier affects incidentals
+  const healthMultiplier = healthCondition === 'excellent' ? 0.8 
+    : healthCondition === 'poor' ? 1.2 
+    : 1.0;
+  
+  // Calculate total with all factors
+  const baseLiability = annualPremiums + annualIncidentals + partDCap;
+  const totalAnnualLiability = baseLiability * endOfLifeMultiplier;
+  
+  return {
+    monthlyPartBPremium,
+    monthlyPartDPremium,
+    totalMonthlyPremiums,
+    annualPremiums,
+    annualIncidentals,
+    partDCap,
+    totalAnnualLiability,
+    healthMultiplier,
+    isEndOfLife,
+    endOfLifeMultiplier,
+  };
+}
+
+/**
+ * Get baseline Medicare costs for a person at age 65 with standard MAGI
+ */
+export function getBaselineMedicareCosts(
+  healthCondition: HealthCondition,
+  medicareChoice: MedicareChoice
+): HealthcareBreakdown {
+  return calculateHealthcareBreakdown(
+    healthCondition,
+    medicareChoice,
+    100000, // Standard MAGI (no IRMAA)
+    true,   // Married
+    65,     // Medicare start age
+    100,    // Target longevity
+    0,      // No inflation yet
+    MEDICAL_INFLATION_HISTORICAL
+  );
+}
+
+/**
+ * Project Medicare costs over simulation period
+ */
+export function projectMedicareHealthCosts(
+  healthCondition: HealthCondition,
+  medicareChoice: MedicareChoice,
+  currentAge: number,
+  targetAge: number,
+  magi: number,
+  isMarried: boolean,
+  medicalInflationRate: number = MEDICAL_INFLATION_HISTORICAL
+): { age: number; annualCost: number; isEndOfLife: boolean }[] {
+  const projections: { age: number; annualCost: number; isEndOfLife: boolean }[] = [];
+  
+  for (let age = Math.max(65, currentAge); age <= targetAge; age++) {
+    const yearsFromBase = age - 65;
+    const breakdown = calculateHealthcareBreakdown(
+      healthCondition,
+      medicareChoice,
+      magi,
+      isMarried,
+      age,
+      targetAge,
+      yearsFromBase,
+      medicalInflationRate
+    );
+    
+    projections.push({
+      age,
+      annualCost: breakdown.totalAnnualLiability,
+      isEndOfLife: breakdown.isEndOfLife,
+    });
+  }
+  
+  return projections;
+}
