@@ -1,20 +1,22 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CategoryPageLayout } from '@/components/layout/CategoryPageLayout';
 import { useMoneyFlows } from '@/hooks/useMoneyFlows';
 import { useCashFlowDashboard } from '@/hooks/useCashFlowDashboard';
+import { useWithdrawalStrategy } from '@/hooks/useWithdrawalStrategy';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { ArrowLeftRight, Plus, Settings, Calculator, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { ArrowLeftRight, Plus, Settings, Calculator, TrendingUp, TrendingDown, PiggyBank, ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { CashFlowCommandCenter } from '@/components/income/CashFlowCommandCenter';
 import { SurplusGapChart } from '@/components/income/SurplusGapChart';
 import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
+import { WithdrawalOrderCard, WithdrawalsByAccountChart } from '@/components/withdrawal';
 
-const formatCurrency = (amount: number) => 
+const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
 
 export default function MoneyFlows() {
@@ -32,8 +34,41 @@ export default function MoneyFlows() {
     isLoading,
   } = useCashFlowDashboard();
   
+  // Withdrawal strategy hook
+  const birthYear = currentAge ? new Date().getFullYear() - currentAge : 1980;
+  const {
+    accounts: withdrawalAccounts,
+    sortedAccounts,
+    settings: withdrawalSettings,
+    chartData: withdrawalChartData,
+    summary: withdrawalSummary,
+    updateOrderStrategy,
+    updateCustomOrder,
+    toggleAccountExclusion,
+    calculateProjections,
+  } = useWithdrawalStrategy(currentAge, birthYear);
+  
   const [dialogOpen, setDialogOpen] = useState(false);
   const navigate = useNavigate();
+  
+  // Calculate withdrawal projections when cash flow data changes
+  useEffect(() => {
+    if (projection && projection.annualSummaries.length > 0 && withdrawalAccounts.length > 0) {
+      const spendingGaps = projection.annualSummaries
+        .filter(s => s.fundedGap > 0 || s.unfundedGap > 0)
+        .map(s => ({
+          year: s.year,
+          age: s.age,
+          gap: s.fundedGap + s.unfundedGap,
+        }));
+      
+      calculateProjections(100, spendingGaps, {
+        enabled: excessSettings.enabled,
+        savePercentage: excessSettings.savePercentage,
+        targetAccountId: withdrawalAccounts.find(a => a.name === excessSettings.targetAccount)?.id || '',
+      });
+    }
+  }, [projection, withdrawalAccounts, excessSettings, calculateProjections]);
   
   // Calculate current monthly values
   const monthlyStats = useMemo(() => {
@@ -127,8 +162,9 @@ export default function MoneyFlows() {
         </div>
 
         <Tabs defaultValue="command" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="command">Command Center</TabsTrigger>
+            <TabsTrigger value="withdrawals">Withdrawal Order</TabsTrigger>
             <TabsTrigger value="visualization">Surplus/Gap Chart</TabsTrigger>
             <TabsTrigger value="contributions">Contributions</TabsTrigger>
           </TabsList>
@@ -212,6 +248,60 @@ export default function MoneyFlows() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="withdrawals" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <WithdrawalOrderCard
+                accounts={withdrawalAccounts}
+                sortedAccounts={sortedAccounts}
+                orderStrategy={withdrawalSettings.orderStrategy}
+                customOrder={withdrawalSettings.customOrder}
+                onStrategyChange={updateOrderStrategy}
+                onCustomOrderChange={updateCustomOrder}
+                onToggleExclusion={toggleAccountExclusion}
+              />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowDown className="h-5 w-5 text-primary" />
+                    Withdrawal Summary
+                  </CardTitle>
+                  <CardDescription>
+                    Projected lifetime withdrawals from your accounts
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">Total Withdrawals</p>
+                      <p className="text-lg font-bold font-mono">{formatCurrency(withdrawalSummary.totalWithdrawals)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-orange-500/10">
+                      <p className="text-xs text-muted-foreground">Total RMDs</p>
+                      <p className="text-lg font-bold font-mono text-orange-600">{formatCurrency(withdrawalSummary.totalRMDs)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">Years Drawing</p>
+                      <p className="text-lg font-bold font-mono">{withdrawalSummary.yearsWithWithdrawals}</p>
+                    </div>
+                    <div className={`p-3 rounded-lg ${withdrawalSummary.totalUnfunded > 0 ? 'bg-red-500/10' : 'bg-emerald-500/10'}`}>
+                      <p className="text-xs text-muted-foreground">Unfunded Gaps</p>
+                      <p className={`text-lg font-bold font-mono ${withdrawalSummary.totalUnfunded > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                        {formatCurrency(withdrawalSummary.totalUnfunded)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <WithdrawalsByAccountChart
+              chartData={withdrawalChartData}
+              retirementAge={retirementAge}
+              accountNames={withdrawalAccounts.map(a => a.name)}
+            />
           </TabsContent>
 
           <TabsContent value="visualization">
