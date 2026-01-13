@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -25,9 +26,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Heart, ShoppingCart, Home, Stethoscope, Plus, Calendar, Tag, AlertTriangle, DollarSign } from 'lucide-react';
+import { Heart, ShoppingCart, Home, Stethoscope, Plus, Calendar, Tag, AlertTriangle, DollarSign, TrendingUp, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { HealthcareCostChart } from '@/components/scenarios/HealthcareCostChart';
 import {
   getBaselineMedicareCosts,
   HEALTH_INCIDENTALS,
@@ -504,6 +506,122 @@ export default function Expenses() {
             </CardContent>
           </Card>
         ))}
+
+        {/* Healthcare Cost Projection Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              Projected Healthcare Costs (Age 65-100)
+            </CardTitle>
+            <CardDescription>
+              Including IRMAA surcharges and end-of-life care surge
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="chart" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="chart">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Chart View
+                </TabsTrigger>
+                <TabsTrigger value="categories">
+                  <Tag className="h-4 w-4 mr-2" />
+                  Expense Categories
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="chart" className="pt-4">
+                <HealthcareCostChart
+                  currentAge={55}
+                  targetAge={100}
+                  baseMAGI={100000}
+                  annualMAGIGrowth={0.02}
+                  healthCondition={healthPrefs.health_condition as HealthCondition}
+                  medicareChoice={healthPrefs.medicare_choice as MedicareChoice}
+                  isMarried={false}
+                  medicalInflationRate={0.0336}
+                  height={350}
+                />
+              </TabsContent>
+              
+              <TabsContent value="categories" className="pt-4 space-y-4">
+                {/* Essential vs Discretionary Categories */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Card className="border-destructive/20 bg-destructive/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Badge variant="destructive" className="text-xs">Essential</Badge>
+                        Mandatory Expenses
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {mandatoryExpenses.length > 0 ? (
+                        mandatoryExpenses.map(expense => (
+                          <div key={expense.id} className="flex justify-between text-sm">
+                            <span>{expense.contribution_name}</span>
+                            <span className="font-mono">{formatCurrency(expense.annual_amount)}/yr</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No mandatory expenses added</p>
+                      )}
+                      <Separator className="my-2" />
+                      <div className="flex justify-between font-semibold text-sm">
+                        <span>Total</span>
+                        <span className="font-mono text-destructive">
+                          {formatCurrency(mandatoryExpenses.reduce((sum, e) => sum + e.annual_amount, 0))}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="border-muted bg-muted/30">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">Flexible</Badge>
+                        Discretionary Expenses
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {discretionaryExpenses.length > 0 ? (
+                        discretionaryExpenses.map(expense => (
+                          <div key={expense.id} className="flex justify-between text-sm">
+                            <span>{expense.contribution_name}</span>
+                            <span className="font-mono">{formatCurrency(expense.annual_amount)}/yr</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No discretionary expenses added</p>
+                      )}
+                      <Separator className="my-2" />
+                      <div className="flex justify-between font-semibold text-sm">
+                        <span>Total</span>
+                        <span className="font-mono">
+                          {formatCurrency(discretionaryExpenses.reduce((sum, e) => sum + e.annual_amount, 0))}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Budget Alert */}
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Budget Insight</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Essential expenses should be covered by guaranteed income (Social Security, pensions). 
+                        Discretionary expenses can be adjusted if markets underperform.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         {/* Category Cards */}
         <CategoryCard

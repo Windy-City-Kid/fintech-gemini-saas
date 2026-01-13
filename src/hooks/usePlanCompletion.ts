@@ -66,11 +66,14 @@ export function usePlanCompletion() {
       const hasProperties = properties.length > 0;
       const hasDebts = properties.some(p => (p.mortgage_balance || 0) > 0) || 
                       accounts.some(a => a.account_type === 'Other' && a.current_balance < 0);
-      const hasIncome = flows.some(f => f.account_type.toLowerCase().includes('income') || 
-                                       f.account_type.toLowerCase().includes('salary') ||
-                                       f.account_type.toLowerCase().includes('pension') ||
-                                       f.account_type.toLowerCase().includes('social security'));
-      const hasExpenses = flows.some(f => f.account_type.toLowerCase().includes('expense'));
+      const hasIncome = flows.some(f => 
+        f.account_type.toLowerCase().includes('income') || 
+        f.account_type.toLowerCase().includes('salary') ||
+        f.account_type.toLowerCase().includes('pension') ||
+        f.account_type.toLowerCase().includes('social security')
+      );
+      const hasExpenses = flows.some(f => f.account_type.toLowerCase().includes('expense')) ||
+                         !!(profile?.health_condition); // Healthcare settings count as expense setup
       const hasMoneyFlows = flows.length > 0;
       const hasEstatePlanning = !!(profile?.legacy_goal_amount && profile.legacy_goal_amount > 0);
       const hasRateAssumptions = rates.length > 0;
