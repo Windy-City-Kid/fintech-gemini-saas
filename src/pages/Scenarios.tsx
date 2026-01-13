@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Calculator, TrendingUp, Calendar, DollarSign, Save, Play, Info } from 'lucide-react';
+import { Calculator, TrendingUp, Calendar, DollarSign, Save, Play, Info, GitCompare } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 import { SimulationResult, SimulationParams, convertTo3AssetAllocation, RateAssumptions } from '@/hooks/useMonteCarloSimulation';
 import { useMonteCarloWorker } from '@/hooks/useMonteCarloWorker';
 import { useRateAssumptions } from '@/hooks/useRateAssumptions';
+import { useScenarios } from '@/hooks/useScenarios';
 import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
 import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
@@ -28,6 +30,9 @@ import { HomeEquityChart } from '@/components/scenarios/HomeEquityChart';
 import { RetirementCoach } from '@/components/scenarios/RetirementCoach';
 import { CategoryInsightsPanel } from '@/components/scenarios/CategoryInsightsPanel';
 import { IntegratedVisualDashboard } from '@/components/scenarios/IntegratedVisualDashboard';
+import { ScenarioManager } from '@/components/scenarios/ScenarioManager';
+import { ScenarioComparisonChart } from '@/components/scenarios/ScenarioComparisonChart';
+import { ScenarioKPIComparison } from '@/components/scenarios/ScenarioKPIComparison';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { useProperties } from '@/hooks/useProperties';
 import { useStateTaxRules } from '@/hooks/useStateTaxRules';
@@ -46,23 +51,32 @@ const scenarioSchema = z.object({
 
 type ScenarioFormData = z.infer<typeof scenarioSchema>;
 
-interface Scenario {
-  id: string;
-  scenario_name: string;
-  current_age: number | null;
-  retirement_age: number;
-  annual_contribution: number;
-  inflation_rate: number;
-  expected_return: number;
-  monthly_retirement_spending: number;
-}
-
 export default function Scenarios() {
   const { user } = useAuth();
-  const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [moneyFlowsDialogOpen, setMoneyFlowsDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'single' | 'compare'>('single');
+  
+  // Multi-scenario management
+  const {
+    scenarios,
+    loading: scenariosLoading,
+    selectedIds,
+    selectedScenarios,
+    baselineScenario,
+    maxScenarios,
+    createScenario,
+    deleteScenario,
+    setBaseline,
+    setForecastMode,
+    cacheResults,
+    toggleSelection,
+    refresh: refreshScenarios,
+  } = useScenarios();
+  
+  // Simulation results cache for comparison
+  const [simulationResultsMap, setSimulationResultsMap] = useState<Map<string, SimulationResult>>(new Map());
   
   // Live adjustment state for real-time chart updates
   const [liveInflation, setLiveInflation] = useState(2.5);
@@ -92,6 +106,12 @@ export default function Scenarios() {
   
   // Use Web Worker for simulation (keeps UI responsive)
   const { result: simulationResult, isRunning: simulating, error: workerError, runSimulation: runWorkerSimulation } = useMonteCarloWorker();
+  
+  // Get active scenario from list
+  const activeScenario = useMemo(() => 
+    scenarios.find(s => s.id === activeScenarioId) || scenarios.find(s => s.is_active) || scenarios[0],
+    [scenarios, activeScenarioId]
+  );
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ScenarioFormData>({
     resolver: zodResolver(scenarioSchema),
@@ -108,39 +128,22 @@ export default function Scenarios() {
 
   const formValues = watch();
 
+  // Sync form values when active scenario changes
   useEffect(() => {
-    const fetchScenario = async () => {
-      if (!user) return;
-      
-      try {
-        const { data } = await supabase
-          .from('scenarios')
-          .select('*')
-          .eq('is_active', true)
-          .single();
-
-        if (data) {
-          setScenario(data);
-          setValue('scenario_name', data.scenario_name);
-          setValue('current_age', data.current_age || 35);
-          setValue('retirement_age', data.retirement_age);
-          setValue('annual_contribution', Number(data.annual_contribution));
-          setValue('inflation_rate', Number(data.inflation_rate));
-          setValue('expected_return', Number(data.expected_return));
-          setValue('monthly_retirement_spending', Number(data.monthly_retirement_spending));
-        }
-      } catch (error) {
-        console.error('Error fetching scenario:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchScenario();
-  }, [user, setValue]);
+    if (activeScenario) {
+      setActiveScenarioId(activeScenario.id);
+      setValue('scenario_name', activeScenario.scenario_name);
+      setValue('current_age', activeScenario.current_age || 35);
+      setValue('retirement_age', activeScenario.retirement_age);
+      setValue('annual_contribution', Number(activeScenario.annual_contribution));
+      setValue('inflation_rate', Number(activeScenario.inflation_rate));
+      setValue('expected_return', Number(activeScenario.expected_return));
+      setValue('monthly_retirement_spending', Number(activeScenario.monthly_retirement_spending));
+    }
+  }, [activeScenario?.id, setValue]);
 
   const onSubmit = async (data: ScenarioFormData) => {
-    if (!user || !scenario) return;
+    if (!user || !activeScenario) return;
     
     setSaving(true);
     try {
@@ -155,10 +158,11 @@ export default function Scenarios() {
           expected_return: data.expected_return,
           monthly_retirement_spending: data.monthly_retirement_spending,
         })
-        .eq('id', scenario.id);
+        .eq('id', activeScenario.id);
 
       if (error) throw error;
       toast.success('Scenario saved successfully');
+      refreshScenarios();
     } catch (error: any) {
       toast.error('Failed to save scenario', { description: error.message });
     } finally {
@@ -366,6 +370,38 @@ export default function Scenarios() {
         </div>
       </div>
 
+      {/* Scenario Manager */}
+      <div className="mb-8">
+        <ScenarioManager
+          scenarios={scenarios}
+          selectedIds={selectedIds}
+          maxScenarios={maxScenarios}
+          onCreateScenario={createScenario}
+          onDeleteScenario={deleteScenario}
+          onSetBaseline={setBaseline}
+          onToggleSelection={toggleSelection}
+          onSelectScenario={(id) => setActiveScenarioId(id)}
+          activeScenarioId={activeScenario?.id}
+        />
+      </div>
+
+      {/* Scenario Comparison (when 2+ selected) */}
+      {selectedScenarios.length >= 2 && (
+        <div className="mb-8 space-y-6">
+          <ScenarioComparisonChart
+            scenarios={selectedScenarios}
+            simulationResults={simulationResultsMap}
+            currentAge={formValues.current_age}
+            retirementAge={formValues.retirement_age}
+          />
+          <ScenarioKPIComparison
+            scenarios={selectedScenarios}
+            baselineId={baselineScenario?.id}
+            onForecastModeChange={setForecastMode}
+          />
+        </div>
+      )}
+
       {/* Simulation Stats */}
       <div className="mb-8">
         <SimulationStats 
@@ -392,7 +428,7 @@ export default function Scenarios() {
           monthlySpending={formValues.monthly_retirement_spending}
           annualContribution={formValues.annual_contribution}
           currentSavings={currentSavings}
-          socialSecurityIncome={(scenario as any)?.social_security_income || 24000}
+          socialSecurityIncome={(activeScenario as any)?.social_security_income || 24000}
           inflationRate={liveInflation}
           medicalInflation={liveMedicalInflation}
           expectedReturn={liveExpectedReturn}
@@ -422,7 +458,7 @@ export default function Scenarios() {
           currentAge={formValues.current_age}
           retirementAge={formValues.retirement_age}
           monthlySpending={formValues.monthly_retirement_spending}
-          socialSecurityIncome={(scenario as any)?.social_security_income || 24000}
+          socialSecurityIncome={(activeScenario as any)?.social_security_income || 24000}
           simulationResults={simulationResult?.percentiles ? [
             ...Array.from({ length: 100 - formValues.current_age + 1 }, (_, i) => ({
               age: formValues.current_age + i,
