@@ -1,13 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useId } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 import { AnnualCashFlowSummary } from '@/lib/cashFlowEngine';
-import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Calendar, User, Minus } from 'lucide-react';
+import { useSyncedChartHover } from '@/contexts/ChartHoverContext';
+import { SnapCursor } from '@/components/charts/EnhancedTooltip';
 
 interface SurplusGapChartProps {
   annualSummaries: AnnualCashFlowSummary[];
   currentAge: number;
   retirementAge: number;
+  baselineData?: AnnualCashFlowSummary[];
+  showDelta?: boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -24,66 +28,111 @@ const COLORS = {
   unfundedGap: '#dc2626', // Red - unfunded gaps (lifetime debt)
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface EnhancedGapTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  label?: any;
+  showDelta?: boolean;
+  baselineData?: AnnualCashFlowSummary[];
+}
+
+const EnhancedGapTooltip = ({ active, payload, label, showDelta, baselineData }: EnhancedGapTooltipProps) => {
   if (!active || !payload || !payload.length) return null;
   
   const data = payload[0]?.payload;
   if (!data) return null;
   
   const totalSurplus = data.savedSurplus + data.unsavedSurplus;
-  const totalGap = data.fundedGap + data.unfundedGap;
+  const totalGap = Math.abs(data.fundedGap) + Math.abs(data.unfundedGap);
+  const hasData = totalSurplus > 0 || totalGap > 0;
+  
+  // Find baseline for delta
+  const baseline = baselineData?.find(b => b.age === data.age);
   
   return (
-    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-semibold mb-2">Age {data.age} ({data.year})</p>
+    <div 
+      className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-4 text-sm min-w-[220px] animate-scale-in"
+      style={{ transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 pb-3 mb-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="font-semibold">{data.year}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <User className="h-3.5 w-3.5" />
+          <span className="text-xs">Age {data.age}</span>
+        </div>
+      </div>
+
+      {/* Empty State */}
+      {!hasData && (
+        <div className="py-4 text-center text-muted-foreground">
+          <Minus className="h-5 w-5 mx-auto mb-1 opacity-50" />
+          <p className="text-xs">No projected activity</p>
+        </div>
+      )}
       
       {totalSurplus > 0 && (
-        <div className="space-y-1 mb-2">
+        <div className="space-y-2 mb-3">
           <div className="flex items-center gap-2 text-emerald-500">
             <TrendingUp className="h-3.5 w-3.5" />
-            <span className="font-medium">Excess Income</span>
+            <span className="font-medium text-xs uppercase tracking-wide">Excess Income</span>
           </div>
           {data.savedSurplus > 0 && (
-            <div className="flex justify-between gap-4 text-emerald-600">
-              <span className="text-xs">Saved to account</span>
-              <span className="font-mono">{formatCurrency(data.savedSurplus)}</span>
+            <div className="flex items-center justify-between gap-3 group">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm transition-transform group-hover:scale-110" style={{ backgroundColor: COLORS.savedSurplus }} />
+                <span className="text-sm">Saved to account</span>
+              </div>
+              <span className="font-mono font-medium">{formatCurrency(data.savedSurplus)}</span>
             </div>
           )}
           {data.unsavedSurplus > 0 && (
-            <div className="flex justify-between gap-4 text-lime-600">
-              <span className="text-xs">Lifestyle spending</span>
-              <span className="font-mono">{formatCurrency(data.unsavedSurplus)}</span>
+            <div className="flex items-center justify-between gap-3 group">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm transition-transform group-hover:scale-110" style={{ backgroundColor: COLORS.unsavedSurplus }} />
+                <span className="text-sm">Lifestyle spending</span>
+              </div>
+              <span className="font-mono font-medium">{formatCurrency(data.unsavedSurplus)}</span>
             </div>
           )}
         </div>
       )}
       
       {totalGap > 0 && (
-        <div className="space-y-1">
+        <div className="space-y-2">
           <div className="flex items-center gap-2 text-orange-500">
             <TrendingDown className="h-3.5 w-3.5" />
-            <span className="font-medium">Cash Shortfall</span>
+            <span className="font-medium text-xs uppercase tracking-wide">Cash Shortfall</span>
           </div>
-          {data.fundedGap > 0 && (
-            <div className="flex justify-between gap-4 text-orange-600">
-              <span className="text-xs">Funded from savings</span>
-              <span className="font-mono">{formatCurrency(data.fundedGap)}</span>
+          {Math.abs(data.fundedGap) > 0 && (
+            <div className="flex items-center justify-between gap-3 group">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm transition-transform group-hover:scale-110" style={{ backgroundColor: COLORS.fundedGap }} />
+                <span className="text-sm">Funded from savings</span>
+              </div>
+              <span className="font-mono font-medium">{formatCurrency(Math.abs(data.fundedGap))}</span>
             </div>
           )}
-          {data.unfundedGap > 0 && (
-            <div className="flex justify-between gap-4 text-red-600">
-              <span className="text-xs">Unfunded (debt)</span>
-              <span className="font-mono">{formatCurrency(data.unfundedGap)}</span>
+          {Math.abs(data.unfundedGap) > 0 && (
+            <div className="flex items-center justify-between gap-3 group">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm transition-transform group-hover:scale-110" style={{ backgroundColor: COLORS.unfundedGap }} />
+                <span className="text-sm">Unfunded (debt)</span>
+              </div>
+              <span className="font-mono font-medium text-red-500">{formatCurrency(Math.abs(data.unfundedGap))}</span>
             </div>
           )}
         </div>
       )}
       
       {data.cumulativeDebt > 0 && (
-        <div className="mt-2 pt-2 border-t border-border">
+        <div className="mt-3 pt-3 border-t border-border">
           <div className="flex justify-between gap-4 text-red-500 font-medium">
             <span>Cumulative Debt</span>
-            <span className="font-mono">{formatCurrency(data.cumulativeDebt)}</span>
+            <span className="font-mono font-bold">{formatCurrency(data.cumulativeDebt)}</span>
           </div>
         </div>
       )}
@@ -95,7 +144,11 @@ export function SurplusGapChart({
   annualSummaries,
   currentAge,
   retirementAge,
+  baselineData,
+  showDelta = false,
 }: SurplusGapChartProps) {
+  const chartId = useId();
+  const { hoveredAge, handleMouseMove, handleMouseLeave, isSourceChart } = useSyncedChartHover(chartId);
   // Prepare chart data - sample every 2 years for readability
   const chartData = useMemo(() => {
     return annualSummaries
@@ -167,7 +220,12 @@ export function SurplusGapChart({
         {/* Chart */}
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <BarChart 
+              data={chartData} 
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            >
               <XAxis 
                 dataKey="age" 
                 tickFormatter={(v) => `${v}`}
@@ -178,7 +236,11 @@ export function SurplusGapChart({
                 tick={{ fontSize: 11 }}
                 width={55}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip 
+                content={<EnhancedGapTooltip showDelta={showDelta} baselineData={baselineData} />}
+                cursor={<SnapCursor />}
+                isAnimationActive={false}
+              />
               
               <ReferenceLine y={0} stroke="hsl(var(--border))" strokeWidth={2} />
               <ReferenceLine 
@@ -187,6 +249,17 @@ export function SurplusGapChart({
                 strokeDasharray="5 5"
                 label={{ value: 'Retire', position: 'top', fontSize: 10 }}
               />
+              
+              {/* Synced hover line */}
+              {hoveredAge !== null && !isSourceChart && (
+                <ReferenceLine 
+                  x={hoveredAge} 
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  style={{ opacity: 0.6, transition: 'all 150ms ease-out' }}
+                />
+              )}
               
               {/* Positive bars (surplus) - stacked */}
               <Bar 
