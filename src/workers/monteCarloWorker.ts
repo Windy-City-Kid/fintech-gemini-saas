@@ -70,6 +70,16 @@ interface MoneyFlowParams {
   withdrawalOrder: string[]; // e.g., ['Brokerage', '401k', 'IRA', 'Roth']
 }
 
+interface StateTaxRule {
+  stateCode: string;
+  stateName: string;
+  baseRate: number;
+  rateType: 'flat' | 'graduated' | 'none';
+  socialSecurityTaxable: boolean;
+  retirementExclusionAmount: number;
+  pensionExclusionType: 'none' | 'federal' | 'state' | 'private' | 'all';
+}
+
 interface PropertyParams {
   mortgageBalance: number;
   mortgageInterestRate: number; // Annual rate as percent (e.g., 6.5 for 6.5%)
@@ -81,6 +91,9 @@ interface PropertyParams {
   relocationNewMortgageAmount?: number;
   relocationNewInterestRate?: number;
   relocationNewTermMonths?: number;
+  relocationState?: string; // State code for relocation (e.g., 'FL', 'TX')
+  currentStateTaxRule?: StateTaxRule;
+  relocationStateTaxRule?: StateTaxRule;
 }
 
 interface SimulationParams {
@@ -634,6 +647,10 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     let iterMortgageMonthlyPayment = mortgageMonthlyPayment;
     let iterHomeValue = homeValue;
     
+    // State tax tracking - start with current state, switch at relocation
+    let currentStateTaxRule = params.property?.currentStateTaxRule;
+    let hasRelocated = false;
+    
     // Simulate death for survivor benefit (simplified: use life expectancy)
     // For each trial, randomize death year around life expectancy
     let primaryDeathYear = Infinity;
@@ -745,7 +762,9 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
       iterHomeValue *= (1 + homeAppreciationRate);
       
       // Handle relocation/downsizing
-      if (params.property?.relocationAge && age === params.property.relocationAge) {
+      if (params.property?.relocationAge && age === params.property.relocationAge && !hasRelocated) {
+        hasRelocated = true;
+        
         // Sell current home
         const saleProceeds = (params.property.relocationSalePrice || iterHomeValue) - iterMortgageBalance;
         
@@ -767,6 +786,11 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
         // Add net proceeds to portfolio (or reduce if buying up)
         const netProceeds = saleProceeds - (newPurchasePrice - iterMortgageBalance);
         balance += netProceeds;
+        
+        // Switch to relocation state tax rules
+        if (params.property.relocationStateTaxRule) {
+          currentStateTaxRule = params.property.relocationStateTaxRule;
+        }
       }
       
       if (!isRetired) {
@@ -822,6 +846,37 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
         
         // Add Medicare costs to spending
         annualSpending += medicareCost;
+        
+        // ============= STATE TAX CALCULATION =============
+        // Calculate state income tax based on current state rules
+        let stateTax = 0;
+        if (currentStateTaxRule && currentStateTaxRule.rateType !== 'none') {
+          // Estimate taxable income: portfolio withdrawal + RMD (if applicable)
+          const estimatedWithdrawal = Math.max(0, annualSpending - ssIncome);
+          let taxableIncome = estimatedWithdrawal;
+          
+          // Add Social Security if state taxes it
+          if (currentStateTaxRule.socialSecurityTaxable) {
+            taxableIncome += ssIncome * 0.85; // Federal SS taxation is up to 85%
+          }
+          
+          // Apply retirement exclusion (for age 60+)
+          if (age >= 60 && currentStateTaxRule.retirementExclusionAmount > 0) {
+            taxableIncome = Math.max(0, taxableIncome - currentStateTaxRule.retirementExclusionAmount);
+          }
+          
+          // Apply pension exclusion
+          if (currentStateTaxRule.pensionExclusionType === 'all') {
+            // All retirement income exempt - just tax investment income above exclusion
+            taxableIncome = 0;
+          }
+          
+          // Calculate tax at base rate
+          stateTax = taxableIncome * (currentStateTaxRule.baseRate / 100);
+        }
+        
+        // Add state tax to spending
+        annualSpending += stateTax;
         
         // Subtract Social Security income from required portfolio withdrawals
         const netWithdrawal = Math.max(0, annualSpending - ssIncome);

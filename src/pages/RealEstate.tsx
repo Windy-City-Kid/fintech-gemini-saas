@@ -8,10 +8,13 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Home, Building2, Plus, RefreshCw, TrendingUp, TrendingDown, DollarSign, Percent, Calendar, MapPin, Edit2, Trash2 } from 'lucide-react';
 import { useProperties, PropertyFormData } from '@/hooks/useProperties';
 import { useSubscription } from '@/hooks/useSubscription';
 import { UpgradeModal } from '@/components/dashboard/UpgradeModal';
+import { TaxProfileCard } from '@/components/scenarios/TaxProfileCard';
+import { useStateTaxRules } from '@/hooks/useStateTaxRules';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -41,6 +44,7 @@ export default function RealEstate() {
   } = useProperties();
 
   const { isPro } = useSubscription();
+  const { rules: stateTaxRules } = useStateTaxRules();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showFutureChanges, setShowFutureChanges] = useState(false);
@@ -65,6 +69,7 @@ export default function RealEstate() {
     relocation_new_mortgage_amount: 0,
     relocation_new_interest_rate: 6.0,
     relocation_new_term_months: 180,
+    relocation_state: '',
   });
 
   const handleSync = async () => {
@@ -265,6 +270,12 @@ export default function RealEstate() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Tax Profile Card */}
+          <TaxProfileCard 
+            currentState="GA" 
+            relocationState={primaryResidence?.relocation_state}
+          />
         </div>
 
         {/* Primary Residence Card */}
@@ -434,6 +445,24 @@ export default function RealEstate() {
                             value={primaryResidence.relocation_new_term_months || futureChanges.relocation_new_term_months}
                             onChange={(e) => setFutureChanges(prev => ({ ...prev, relocation_new_term_months: Number(e.target.value) }))}
                           />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Destination State</Label>
+                          <Select
+                            value={primaryResidence.relocation_state || futureChanges.relocation_state || ''}
+                            onValueChange={(value) => setFutureChanges(prev => ({ ...prev, relocation_state: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {stateTaxRules.map((rule) => (
+                                <SelectItem key={rule.state_code} value={rule.state_code}>
+                                  {rule.state_name} ({rule.retirement_friendliness})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <div className="mt-4 flex justify-end">

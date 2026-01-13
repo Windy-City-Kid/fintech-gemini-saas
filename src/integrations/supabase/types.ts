@@ -273,6 +273,7 @@ export type Database = {
           relocation_new_purchase_price: number | null
           relocation_new_term_months: number | null
           relocation_sale_price: number | null
+          relocation_state: string | null
           updated_at: string
           user_id: string
         }
@@ -296,6 +297,7 @@ export type Database = {
           relocation_new_purchase_price?: number | null
           relocation_new_term_months?: number | null
           relocation_sale_price?: number | null
+          relocation_state?: string | null
           updated_at?: string
           user_id: string
         }
@@ -319,6 +321,7 @@ export type Database = {
           relocation_new_purchase_price?: number | null
           relocation_new_term_months?: number | null
           relocation_sale_price?: number | null
+          relocation_state?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -447,6 +450,51 @@ export type Database = {
           updated_at?: string
           user_id?: string
           withdrawal_order?: string[] | null
+        }
+        Relationships: []
+      }
+      state_tax_rules: {
+        Row: {
+          base_rate: number
+          created_at: string
+          id: string
+          notes: string | null
+          pension_exclusion_type: string | null
+          rate_type: string
+          retirement_exclusion_amount: number | null
+          retirement_friendliness: string | null
+          social_security_taxable: boolean
+          state_code: string
+          state_name: string
+          updated_at: string
+        }
+        Insert: {
+          base_rate?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pension_exclusion_type?: string | null
+          rate_type?: string
+          retirement_exclusion_amount?: number | null
+          retirement_friendliness?: string | null
+          social_security_taxable?: boolean
+          state_code: string
+          state_name: string
+          updated_at?: string
+        }
+        Update: {
+          base_rate?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pension_exclusion_type?: string | null
+          rate_type?: string
+          retirement_exclusion_amount?: number | null
+          retirement_friendliness?: string | null
+          social_security_taxable?: boolean
+          state_code?: string
+          state_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
