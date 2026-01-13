@@ -120,6 +120,12 @@ interface SimulationResult {
   ages: number[];
   successRate: number;
   medianEndBalance: number;
+  medianEstateValue: number; // Portfolio + Home Equity at end
+  homeEquityPercentiles: {
+    p5: number[];
+    p50: number[];
+    p95: number[];
+  };
   guardrailActivations: number;
   guardrailEvents: GuardrailEvent[];
   inflationScenarios: {
@@ -573,6 +579,7 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   
   // Pre-allocate arrays
   const allBalances = new Float64Array(iterations * (yearsToSimulate + 1));
+  const allHomeEquities = new Float64Array(iterations * (yearsToSimulate + 1));
   const guardrailByYear = new Uint16Array(retirementYears + 1);
   const firstYearInflations = new Float64Array(iterations);
   const ssBenefitTotals = new Float64Array(yearsToSimulate + 1);
@@ -612,6 +619,10 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
   for (let iter = 0; iter < iterations; iter++) {
     let balance = params.currentSavings;
     allBalances[iter * (yearsToSimulate + 1)] = balance;
+    
+    // Initial home equity
+    const initialHomeEquity = Math.max(0, homeValue - mortgageBalance);
+    allHomeEquities[iter * (yearsToSimulate + 1)] = initialHomeEquity;
     
     let guardrailActive = false;
     let iterGuardrailCount = 0;
@@ -844,18 +855,25 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
       }
       
       allBalances[iter * (yearsToSimulate + 1) + year + 1] = Math.max(0, balance);
+      
+      // Track home equity for this year
+      const currentHomeEquity = Math.max(0, iterHomeValue - iterMortgageBalance);
+      allHomeEquities[iter * (yearsToSimulate + 1) + year + 1] = currentHomeEquity;
     }
     
-    // Success = portfolio remains ABOVE legacy goal at end
+    // Success = ESTATE VALUE (portfolio + home equity) remains ABOVE legacy goal at end
     const finalBalance = allBalances[iter * (yearsToSimulate + 1) + yearsToSimulate];
-    if (finalBalance >= legacyGoal) {
+    const finalHomeEquity = allHomeEquities[iter * (yearsToSimulate + 1) + yearsToSimulate];
+    const estateValue = finalBalance + finalHomeEquity;
+    
+    if (estateValue >= legacyGoal) {
       successCount++;
     }
     
     totalGuardrailActivations += iterGuardrailCount;
   }
   
-  // Calculate percentiles
+  // Calculate percentiles for portfolio balance
   const percentiles = {
     p5: new Array(yearsToSimulate + 1),
     p25: new Array(yearsToSimulate + 1),
@@ -864,20 +882,43 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     p95: new Array(yearsToSimulate + 1),
   };
   
+  // Calculate percentiles for home equity
+  const homeEquityPercentiles = {
+    p5: new Array(yearsToSimulate + 1),
+    p50: new Array(yearsToSimulate + 1),
+    p95: new Array(yearsToSimulate + 1),
+  };
+  
   const sortBuffer = new Float64Array(iterations);
+  const homeEquitySortBuffer = new Float64Array(iterations);
   
   for (let year = 0; year <= yearsToSimulate; year++) {
     for (let i = 0; i < iterations; i++) {
       sortBuffer[i] = allBalances[i * (yearsToSimulate + 1) + year];
+      homeEquitySortBuffer[i] = allHomeEquities[i * (yearsToSimulate + 1) + year];
     }
     sortBuffer.sort();
+    homeEquitySortBuffer.sort();
     
     percentiles.p5[year] = sortBuffer[Math.floor(iterations * 0.05)];
     percentiles.p25[year] = sortBuffer[Math.floor(iterations * 0.25)];
     percentiles.p50[year] = sortBuffer[Math.floor(iterations * 0.50)];
     percentiles.p75[year] = sortBuffer[Math.floor(iterations * 0.75)];
     percentiles.p95[year] = sortBuffer[Math.floor(iterations * 0.95)];
+    
+    homeEquityPercentiles.p5[year] = homeEquitySortBuffer[Math.floor(iterations * 0.05)];
+    homeEquityPercentiles.p50[year] = homeEquitySortBuffer[Math.floor(iterations * 0.50)];
+    homeEquityPercentiles.p95[year] = homeEquitySortBuffer[Math.floor(iterations * 0.95)];
   }
+  
+  // Calculate median estate value (portfolio + home equity at end)
+  const estateValues = new Float64Array(iterations);
+  for (let i = 0; i < iterations; i++) {
+    estateValues[i] = allBalances[i * (yearsToSimulate + 1) + yearsToSimulate] + 
+                      allHomeEquities[i * (yearsToSimulate + 1) + yearsToSimulate];
+  }
+  estateValues.sort();
+  const medianEstateValue = estateValues[Math.floor(iterations * 0.50)];
   
   // Average SS benefits by year
   const ssBenefitsByAge = Array.from(ssBenefitTotals).map(total => total / iterations);
@@ -908,6 +949,8 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     ages,
     successRate: (successCount / iterations) * 100,
     medianEndBalance: percentiles.p50[yearsToSimulate],
+    medianEstateValue,
+    homeEquityPercentiles,
     guardrailActivations: totalGuardrailActivations,
     guardrailEvents,
     inflationScenarios: {
