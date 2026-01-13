@@ -12,6 +12,7 @@ import {
   FEDERAL_ESTATE_EXEMPTION_2026,
   STATE_ESTATE_TAXES,
 } from '@/lib/estateCalculator';
+import { AskAIButton } from '@/components/advisor/AskAIButton';
 
 interface EstateValueProjectionProps {
   projection: EstateProjectionResult | null;
@@ -47,12 +48,28 @@ export function EstateValueProjection({
             <Building2 className="h-5 w-5 text-primary" />
             Net Worth at Death (Age {longevityAge})
           </CardTitle>
-          {isAtRisk && (
-            <Badge variant="destructive" className="gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              Legacy Goal at Risk
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            <AskAIButton
+              chartType="estateProjection"
+              chartTitle="Estate Value Projection"
+              chartData={{
+                grossEstate: projection.grossEstate,
+                federalEstateTax: projection.federalEstateTax,
+                stateEstateTax: projection.stateEstateTax,
+                netToHeirs: projection.netToHeirs,
+                charitableDeductions: projection.charitableDeductions,
+                legacyGoal,
+                stateCode,
+                longevityAge,
+              }}
+            />
+            {isAtRisk && (
+              <Badge variant="destructive" className="gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Legacy Goal at Risk
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-6 space-y-6">

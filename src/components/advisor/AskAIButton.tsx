@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sparkles } from 'lucide-react';
+import { useAIAdvisorContext } from '@/contexts/AIAdvisorContext';
 
 interface AskAIButtonProps {
   chartTitle: string;
   chartType: string;
   chartData: unknown;
-  onAsk: (context: { chartTitle: string; chartType: string; chartData: unknown }) => void;
   className?: string;
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'icon';
@@ -16,17 +16,26 @@ export function AskAIButton({
   chartTitle,
   chartType,
   chartData,
-  onAsk,
   className,
   variant = 'ghost',
   size = 'sm',
 }: AskAIButtonProps) {
+  let context: ReturnType<typeof useAIAdvisorContext> | null = null;
+  
+  try {
+    context = useAIAdvisorContext();
+  } catch {
+    // Context not available - button will be disabled
+  }
+
   const handleClick = () => {
-    onAsk({
-      chartTitle,
-      chartType,
-      chartData,
-    });
+    if (context?.openWithChartContext) {
+      context.openWithChartContext({
+        chartTitle,
+        chartType,
+        chartData,
+      });
+    }
   };
 
   return (
@@ -38,13 +47,14 @@ export function AskAIButton({
             size={size}
             onClick={handleClick}
             className={className}
+            disabled={!context}
           >
             <Sparkles className="h-4 w-4 mr-1" />
             Ask AI
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Ask Ariel to explain this chart</p>
+          <p>Ask The Advisor to explain this chart</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
