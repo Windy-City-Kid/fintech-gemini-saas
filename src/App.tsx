@@ -7,8 +7,16 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Summary from "./pages/Summary";
+import Connections from "./pages/Connections";
+import Accounts from "./pages/Accounts";
 import NetWorth from "./pages/NetWorth";
 import RealEstate from "./pages/RealEstate";
+import Debts from "./pages/Debts";
+import Income from "./pages/Income";
+import Expenses from "./pages/Expenses";
+import MoneyFlows from "./pages/MoneyFlows";
+import EstatePlanning from "./pages/EstatePlanning";
 import Scenarios from "./pages/Scenarios";
 import RateAssumptions from "./pages/RateAssumptions";
 import Settings from "./pages/Settings";
@@ -26,41 +34,21 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/net-worth" element={
-              <ProtectedRoute>
-                <NetWorth />
-              </ProtectedRoute>
-            } />
-            <Route path="/real-estate" element={
-              <ProtectedRoute>
-                <RealEstate />
-              </ProtectedRoute>
-            } />
-            <Route path="/scenarios" element={
-              <ProtectedRoute>
-                <Scenarios />
-              </ProtectedRoute>
-            } />
-            <Route path="/rate-assumptions" element={
-              <ProtectedRoute>
-                <RateAssumptions />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="/success" element={
-              <ProtectedRoute>
-                <Success />
-              </ProtectedRoute>
-            } />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/summary" element={<ProtectedRoute><Summary /></ProtectedRoute>} />
+            <Route path="/connections" element={<ProtectedRoute><Connections /></ProtectedRoute>} />
+            <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+            <Route path="/net-worth" element={<ProtectedRoute><NetWorth /></ProtectedRoute>} />
+            <Route path="/real-estate" element={<ProtectedRoute><RealEstate /></ProtectedRoute>} />
+            <Route path="/debts" element={<ProtectedRoute><Debts /></ProtectedRoute>} />
+            <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
+            <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+            <Route path="/money-flows" element={<ProtectedRoute><MoneyFlows /></ProtectedRoute>} />
+            <Route path="/estate-planning" element={<ProtectedRoute><EstatePlanning /></ProtectedRoute>} />
+            <Route path="/scenarios" element={<ProtectedRoute><Scenarios /></ProtectedRoute>} />
+            <Route path="/rate-assumptions" element={<ProtectedRoute><RateAssumptions /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/success" element={<ProtectedRoute><Success /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
