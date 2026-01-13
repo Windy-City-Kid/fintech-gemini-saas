@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CategoryPageLayout } from '@/components/layout/CategoryPageLayout';
 import { CategoryCard } from '@/components/layout/CategoryCard';
 import { useMoneyFlows } from '@/hooks/useMoneyFlows';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -24,9 +25,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Heart, ShoppingCart, Home, Stethoscope, Plus, Calendar, Tag } from 'lucide-react';
+import { Heart, ShoppingCart, Home, Stethoscope, Plus, Calendar, Tag, AlertTriangle, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import {
+  getBaselineMedicareCosts,
+  HEALTH_INCIDENTALS,
+  PART_D_PRESCRIPTION_CAP,
+  MEDICARE_PART_B_STANDARD,
+  MEDICARE_PART_D_BASE,
+  type HealthCondition,
+  type MedicareChoice,
+} from '@/lib/medicareCalculator';
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
 
@@ -145,12 +155,26 @@ export default function Expenses() {
     }
   };
 
-  // Calculate medical cost adjustment based on health condition
-  const getHealthMultiplier = () => {
+  // Calculate healthcare breakdown using the 2026 Medicare Health Status Engine
+  const healthcareBreakdown = useMemo(() => {
+    const breakdown = getBaselineMedicareCosts(
+      healthPrefs.health_condition as HealthCondition,
+      healthPrefs.medicare_choice as MedicareChoice
+    );
+    return breakdown;
+  }, [healthPrefs.health_condition, healthPrefs.medicare_choice]);
+
+  // Get incidentals description based on health status
+  const getIncidentalsDescription = () => {
     switch (healthPrefs.health_condition) {
-      case 'excellent': return 0.8; // -20%
-      case 'poor': return 1.2; // +20%
-      default: return 1.0; // baseline
+      case 'excellent':
+        return 'Dental, vision, and hearing';
+      case 'good':
+        return 'Coinsurance and deductibles';
+      case 'poor':
+        return 'Higher utilization + Part D cap';
+      default:
+        return 'Out-of-pocket costs';
     }
   };
 
@@ -247,11 +271,115 @@ export default function Expenses() {
             </div>
             <div className="flex justify-between items-center pt-2 border-t">
               <p className="text-sm text-muted-foreground">
-                Health multiplier: <span className="font-mono font-medium text-foreground">{getHealthMultiplier()}x</span>
+                Health multiplier: <span className="font-mono font-medium text-foreground">{healthcareBreakdown.healthMultiplier}x</span>
               </p>
               <Button onClick={saveHealthPreferences} disabled={savingPrefs}>
                 {savingPrefs ? 'Saving...' : 'Save Preferences'}
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Healthcare Breakdown Card - 2026 Medicare Engine */}
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Heart className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Healthcare Breakdown</CardTitle>
+                  <CardDescription>2026 Medicare projections at age 65</CardDescription>
+                </div>
+              </div>
+              {healthPrefs.health_condition === 'poor' && (
+                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Part D Cap Active
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Premium Breakdown */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Part B Premium</span>
+                </div>
+                <span className="font-mono font-medium">{formatCurrency(MEDICARE_PART_B_STANDARD)}/mo</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Part D Premium (avg)</span>
+                </div>
+                <span className="font-mono font-medium">{formatCurrency(MEDICARE_PART_D_BASE)}/mo</span>
+              </div>
+              {healthPrefs.medicare_choice === 'medigap' && (
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Medigap Plan G</span>
+                  </div>
+                  <span className="font-mono font-medium">+$175/mo</span>
+                </div>
+              )}
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Monthly Premiums</span>
+                <span className="font-mono font-semibold text-primary">
+                  {formatCurrency(healthcareBreakdown.totalMonthlyPremiums)}
+                </span>
+              </div>
+            </div>
+
+            {/* Out-of-Pocket Costs */}
+            <div className="space-y-3 pt-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Estimated Out-of-Pocket ({healthPrefs.health_condition} health)
+              </p>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">{getIncidentalsDescription()}</span>
+                <span className="font-mono font-medium">
+                  {formatCurrency(HEALTH_INCIDENTALS[healthPrefs.health_condition as HealthCondition])}/yr
+                </span>
+              </div>
+              {healthPrefs.health_condition === 'poor' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Part D Prescription Cap</span>
+                  <span className="font-mono font-medium text-destructive">
+                    {formatCurrency(PART_D_PRESCRIPTION_CAP)}/yr
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Total Annual Liability */}
+            <Separator />
+            <div className="bg-primary/5 rounded-lg p-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Annual Liability</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Premiums + Out-of-Pocket ({healthPrefs.health_condition})
+                  </p>
+                </div>
+                <p className="text-2xl font-bold font-mono text-primary">
+                  {formatCurrency(healthcareBreakdown.totalAnnualLiability)}
+                </p>
+              </div>
+            </div>
+
+            {/* End-of-Life Warning */}
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>End-of-Life Planning:</strong> Medical costs increase by 150% in the final 3 years 
+                of simulation (ages 97-100) to model long-term care and nursing needs.
+              </span>
             </div>
           </CardContent>
         </Card>
