@@ -42,6 +42,7 @@ export { IRSLimitWarning } from './IRSLimitWarning';
 export { PlanSummary } from './PlanSummary';
 export { TaxProfileCard } from './TaxProfileCard';
 export { RelocationDecisionMatrix } from './RelocationDecisionMatrix';
+export { HeirImpactMode } from './HeirImpactMode';
 export { RelocationExplorer } from './RelocationExplorer';
 
 // Healthcare & IRMAA
