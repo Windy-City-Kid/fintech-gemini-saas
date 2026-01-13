@@ -464,8 +464,10 @@ export type Database = {
           retirement_exclusion_amount: number | null
           retirement_friendliness: string | null
           social_security_taxable: boolean
+          ss_exemption_threshold_joint: number | null
           state_code: string
           state_name: string
+          top_marginal_rate: number | null
           updated_at: string
         }
         Insert: {
@@ -478,8 +480,10 @@ export type Database = {
           retirement_exclusion_amount?: number | null
           retirement_friendliness?: string | null
           social_security_taxable?: boolean
+          ss_exemption_threshold_joint?: number | null
           state_code: string
           state_name: string
+          top_marginal_rate?: number | null
           updated_at?: string
         }
         Update: {
@@ -492,15 +496,46 @@ export type Database = {
           retirement_exclusion_amount?: number | null
           retirement_friendliness?: string | null
           social_security_taxable?: boolean
+          ss_exemption_threshold_joint?: number | null
           state_code?: string
           state_name?: string
+          top_marginal_rate?: number | null
           updated_at?: string
         }
         Relationships: []
       }
     }
     Views: {
-      [_ in never]: never
+      state_tax_lookup: {
+        Row: {
+          base_rate_type: string | null
+          retirement_income_exclusion: number | null
+          ss_exemption_threshold_joint: number | null
+          ss_is_taxable: boolean | null
+          state_code: string | null
+          state_name: string | null
+          top_marginal_rate: number | null
+        }
+        Insert: {
+          base_rate_type?: never
+          retirement_income_exclusion?: number | null
+          ss_exemption_threshold_joint?: number | null
+          ss_is_taxable?: boolean | null
+          state_code?: string | null
+          state_name?: string | null
+          top_marginal_rate?: never
+        }
+        Update: {
+          base_rate_type?: never
+          retirement_income_exclusion?: number | null
+          ss_exemption_threshold_joint?: number | null
+          ss_is_taxable?: boolean | null
+          state_code?: string | null
+          state_name?: string | null
+          top_marginal_rate?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
