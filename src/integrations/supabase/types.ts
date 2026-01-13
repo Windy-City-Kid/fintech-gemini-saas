@@ -115,6 +115,111 @@ export type Database = {
           },
         ]
       }
+      income_sources: {
+        Row: {
+          amount: number
+          annuity_type: string | null
+          category: string
+          claiming_age: number | null
+          cola_rate: number | null
+          created_at: string
+          custom_inflation_rate: number | null
+          description: string | null
+          end_milestone: string | null
+          end_month: number | null
+          end_year: number | null
+          expected_date: string | null
+          fra: number | null
+          frequency: string
+          guaranteed_period_years: number | null
+          id: string
+          inflation_adjusted: boolean
+          is_active: boolean
+          is_taxable: boolean
+          name: string
+          pension_type: string | null
+          pia_amount: number | null
+          probability_percentage: number | null
+          start_milestone: string | null
+          start_month: number | null
+          start_year: number
+          subcategory: string | null
+          survivor_percentage: number | null
+          tax_treatment: string | null
+          updated_at: string
+          user_id: string
+          windfall_type: string | null
+        }
+        Insert: {
+          amount?: number
+          annuity_type?: string | null
+          category?: string
+          claiming_age?: number | null
+          cola_rate?: number | null
+          created_at?: string
+          custom_inflation_rate?: number | null
+          description?: string | null
+          end_milestone?: string | null
+          end_month?: number | null
+          end_year?: number | null
+          expected_date?: string | null
+          fra?: number | null
+          frequency?: string
+          guaranteed_period_years?: number | null
+          id?: string
+          inflation_adjusted?: boolean
+          is_active?: boolean
+          is_taxable?: boolean
+          name?: string
+          pension_type?: string | null
+          pia_amount?: number | null
+          probability_percentage?: number | null
+          start_milestone?: string | null
+          start_month?: number | null
+          start_year: number
+          subcategory?: string | null
+          survivor_percentage?: number | null
+          tax_treatment?: string | null
+          updated_at?: string
+          user_id: string
+          windfall_type?: string | null
+        }
+        Update: {
+          amount?: number
+          annuity_type?: string | null
+          category?: string
+          claiming_age?: number | null
+          cola_rate?: number | null
+          created_at?: string
+          custom_inflation_rate?: number | null
+          description?: string | null
+          end_milestone?: string | null
+          end_month?: number | null
+          end_year?: number | null
+          expected_date?: string | null
+          fra?: number | null
+          frequency?: string
+          guaranteed_period_years?: number | null
+          id?: string
+          inflation_adjusted?: boolean
+          is_active?: boolean
+          is_taxable?: boolean
+          name?: string
+          pension_type?: string | null
+          pia_amount?: number | null
+          probability_percentage?: number | null
+          start_milestone?: string | null
+          start_month?: number | null
+          start_year?: number
+          subcategory?: string | null
+          survivor_percentage?: number | null
+          tax_treatment?: string | null
+          updated_at?: string
+          user_id?: string
+          windfall_type?: string | null
+        }
+        Relationships: []
+      }
       money_flows: {
         Row: {
           account_type: string
