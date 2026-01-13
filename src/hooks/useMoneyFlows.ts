@@ -14,6 +14,7 @@ export interface MoneyFlow {
   excess_income_enabled: boolean;
   excess_save_percentage: number | null;
   excess_target_account: string | null;
+  priority: 'mandatory' | 'discretionary' | null;
 }
 
 export interface MoneyFlowsSummary {
@@ -42,7 +43,12 @@ export function useMoneyFlows(currentAge?: number) {
         .order('created_at', { ascending: true });
 
       if (fetchError) throw fetchError;
-      setFlows(data || []);
+      // Map priority field with type assertion since DB returns string
+      const mappedData = (data || []).map(item => ({
+        ...item,
+        priority: item.priority as 'mandatory' | 'discretionary' | null,
+      }));
+      setFlows(mappedData);
       setError(null);
     } catch (err) {
       console.error('Error fetching money flows:', err);

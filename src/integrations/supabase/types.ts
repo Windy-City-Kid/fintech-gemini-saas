@@ -128,6 +128,7 @@ export type Database = {
           id: string
           income_link_percentage: number | null
           is_income_linked: boolean
+          priority: string | null
           start_age: number
           updated_at: string
           user_id: string
@@ -144,6 +145,7 @@ export type Database = {
           id?: string
           income_link_percentage?: number | null
           is_income_linked?: boolean
+          priority?: string | null
           start_age?: number
           updated_at?: string
           user_id: string
@@ -160,6 +162,7 @@ export type Database = {
           id?: string
           income_link_percentage?: number | null
           is_income_linked?: boolean
+          priority?: string | null
           start_age?: number
           updated_at?: string
           user_id?: string
@@ -210,8 +213,10 @@ export type Database = {
           created_at: string
           email: string | null
           full_name: string | null
+          health_condition: string | null
           id: string
           legacy_goal_amount: number | null
+          medicare_choice: string | null
           mfa_enabled: boolean | null
           spouse_dob: string | null
           spouse_name: string | null
@@ -225,8 +230,10 @@ export type Database = {
           created_at?: string
           email?: string | null
           full_name?: string | null
+          health_condition?: string | null
           id?: string
           legacy_goal_amount?: number | null
+          medicare_choice?: string | null
           mfa_enabled?: boolean | null
           spouse_dob?: string | null
           spouse_name?: string | null
@@ -240,8 +247,10 @@ export type Database = {
           created_at?: string
           email?: string | null
           full_name?: string | null
+          health_condition?: string | null
           id?: string
           legacy_goal_amount?: number | null
+          medicare_choice?: string | null
           mfa_enabled?: boolean | null
           spouse_dob?: string | null
           spouse_name?: string | null
