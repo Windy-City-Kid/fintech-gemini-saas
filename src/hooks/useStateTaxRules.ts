@@ -10,6 +10,7 @@ export interface StateTaxRule {
   rate_type: 'flat' | 'graduated' | 'none';
   social_security_taxable: boolean;
   ss_exemption_threshold_joint: number | null;
+  ss_exemption_threshold_single?: number | null;
   retirement_exclusion_amount: number;
   pension_exclusion_type: 'none' | 'federal' | 'state' | 'private' | 'all';
   retirement_friendliness: 'excellent' | 'good' | 'neutral' | 'poor';
@@ -17,6 +18,13 @@ export interface StateTaxRule {
   property_tax_rate: number;
   notes: string | null;
 }
+
+// 2026 "Taxing 8" States - States that still tax Social Security
+export const TAXING_8_STATES = ['CT', 'MN', 'MT', 'NM', 'RI', 'UT', 'VT'];
+// Note: West Virginia became fully exempt in 2026
+
+// States with no income tax
+export const NO_INCOME_TAX_STATES = ['AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WA', 'WY'];
 
 export function useStateTaxRules() {
   const { data: rules, isLoading } = useQuery({

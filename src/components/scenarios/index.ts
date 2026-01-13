@@ -41,6 +41,7 @@ export { MedicalCostWatch } from './MedicalCostWatch';
 export { IRSLimitWarning } from './IRSLimitWarning';
 export { PlanSummary } from './PlanSummary';
 export { TaxProfileCard } from './TaxProfileCard';
+export { RelocationDecisionMatrix } from './RelocationDecisionMatrix';
 export { RelocationExplorer } from './RelocationExplorer';
 
 // Healthcare & IRMAA
