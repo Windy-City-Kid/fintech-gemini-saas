@@ -456,6 +456,7 @@ export type Database = {
       state_tax_rules: {
         Row: {
           base_rate: number
+          col_multiplier: number | null
           created_at: string
           id: string
           notes: string | null
@@ -472,6 +473,7 @@ export type Database = {
         }
         Insert: {
           base_rate?: number
+          col_multiplier?: number | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -488,6 +490,7 @@ export type Database = {
         }
         Update: {
           base_rate?: number
+          col_multiplier?: number | null
           created_at?: string
           id?: string
           notes?: string | null
