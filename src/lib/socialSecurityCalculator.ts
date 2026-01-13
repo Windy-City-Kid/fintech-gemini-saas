@@ -6,7 +6,25 @@
  * - Delayed retirement credits (8% per year past FRA)
  * - COLA compounding (CPI-W based)
  * - Survivor benefit logic for married couples
+ * 
+ * 2026 SSA Updates:
+ * - COLA: 2.8% for 2026
+ * - Maximum Taxable Earnings: $184,500
  */
+
+// 2026 SSA Constants
+export const SSA_2026 = {
+  COLA_RATE: 0.028,                    // 2.8% COLA for 2026
+  MAX_TAXABLE_EARNINGS: 184500,        // 2026 wage base
+  BEND_POINT_1: 1226,                  // First bend point (monthly)
+  BEND_POINT_2: 7391,                  // Second bend point (monthly)
+  MAXIMUM_BENEFIT_AT_FRA: 4018,        // Maximum monthly benefit at FRA
+  MAXIMUM_BENEFIT_AT_70: 4873,         // Maximum monthly benefit at 70
+  EARLY_RETIREMENT_AGE: 62,
+  FULL_RETIREMENT_AGE: 67,             // For those born 1960+
+  DELAYED_RETIREMENT_AGE: 70,
+  DRC_RATE: 0.08,                      // 8% delayed retirement credits per year
+};
 
 export interface SocialSecurityParams {
   primaryPIA: number;           // Primary Insurance Amount at FRA
@@ -18,7 +36,7 @@ export interface SocialSecurityParams {
   spouseFRA?: number;           // Spouse FRA
   spouseCurrentAge?: number;    // Spouse current age
   isMarried: boolean;
-  colaRate: number;             // Annual COLA rate (e.g., 0.0254 for 2.54%)
+  colaRate: number;             // Annual COLA rate (default: 0.028 for 2026)
 }
 
 export interface YearlyBenefit {
