@@ -1,4 +1,4 @@
-import { TrendingUp, Shield, Percent, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Shield, Percent, AlertTriangle, Home } from 'lucide-react';
 import { SimulationResult } from '@/hooks/useMonteCarloSimulation';
 
 interface SimulationStatsProps {
@@ -16,8 +16,8 @@ export function SimulationStats({ result, retirementAge, currentAge }: Simulatio
 
   if (!result) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="stat-card animate-pulse">
             <div className="h-4 bg-muted rounded w-24 mb-2" />
             <div className="h-8 bg-muted rounded w-16" />
@@ -30,9 +30,10 @@ export function SimulationStats({ result, retirementAge, currentAge }: Simulatio
   const retirementIndex = retirementAge - currentAge;
   const medianAtRetirement = result.percentiles.p50[retirementIndex] || 0;
   const pessimisticAtRetirement = result.percentiles.p5[retirementIndex] || 0;
+  const hasHomeEquity = result.medianEstateValue && result.medianEstateValue > result.medianEndBalance;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
       {/* Success Rate */}
       <div className="stat-card">
         <div className="flex items-center gap-2 mb-2">
@@ -54,7 +55,7 @@ export function SimulationStats({ result, retirementAge, currentAge }: Simulatio
           {result.successRate.toFixed(1)}%
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Probability of not running out
+          Estate meets legacy goal
         </p>
       </div>
 
@@ -71,6 +72,22 @@ export function SimulationStats({ result, retirementAge, currentAge }: Simulatio
         </p>
         <p className="text-xs text-muted-foreground mt-1">
           At retirement (50th percentile)
+        </p>
+      </div>
+
+      {/* Estate Value - Portfolio + Home Equity */}
+      <div className="stat-card">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
+            <Home className="h-4 w-4 text-accent" />
+          </div>
+          <span className="text-sm text-muted-foreground">Estate at 100</span>
+        </div>
+        <p className="text-2xl font-bold font-mono text-accent">
+          {formatCurrency(result.medianEstateValue || result.medianEndBalance)}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {hasHomeEquity ? 'Portfolio + Home Equity' : 'Portfolio only'}
         </p>
       </div>
 

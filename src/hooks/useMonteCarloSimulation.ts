@@ -143,6 +143,12 @@ export interface SimulationResult {
   ages: number[];
   successRate: number;
   medianEndBalance: number;
+  medianEstateValue?: number; // Portfolio + Home Equity at end
+  homeEquityPercentiles?: {
+    p5: number[];
+    p50: number[];
+    p95: number[];
+  };
   guardrailActivations: number;
   guardrailEvents: GuardrailEvent[];
   inflationScenarios: {
