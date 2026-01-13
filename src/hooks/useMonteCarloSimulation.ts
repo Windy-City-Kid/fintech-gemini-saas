@@ -98,6 +98,16 @@ export interface MoneyFlowParams {
   withdrawalOrder: string[]; // e.g., ['Brokerage', '401k', 'IRA', 'Roth']
 }
 
+export interface StateTaxRule {
+  stateCode: string;
+  stateName: string;
+  baseRate: number;
+  rateType: 'flat' | 'graduated' | 'none';
+  socialSecurityTaxable: boolean;
+  retirementExclusionAmount: number;
+  pensionExclusionType: 'none' | 'federal' | 'state' | 'private' | 'all';
+}
+
 export interface PropertyParams {
   mortgageBalance: number;
   mortgageInterestRate: number; // Annual rate as percent (e.g., 6.5 for 6.5%)
@@ -109,6 +119,9 @@ export interface PropertyParams {
   relocationNewMortgageAmount?: number;
   relocationNewInterestRate?: number;
   relocationNewTermMonths?: number;
+  relocationState?: string;
+  currentStateTaxRule?: StateTaxRule;
+  relocationStateTaxRule?: StateTaxRule;
 }
 
 export interface SimulationParams {

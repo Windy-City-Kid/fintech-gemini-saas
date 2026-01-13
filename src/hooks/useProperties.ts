@@ -21,6 +21,7 @@ export interface Property {
   relocation_new_mortgage_amount: number | null;
   relocation_new_interest_rate: number | null;
   relocation_new_term_months: number | null;
+  relocation_state: string | null;
 }
 
 export interface PropertyFormData {
@@ -37,6 +38,7 @@ export interface PropertyFormData {
   relocation_new_mortgage_amount?: number | null;
   relocation_new_interest_rate?: number | null;
   relocation_new_term_months?: number | null;
+  relocation_state?: string | null;
 }
 
 export function useProperties() {
