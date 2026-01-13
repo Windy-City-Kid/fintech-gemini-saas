@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,8 +24,10 @@ import { MoneyFlowsTile } from '@/components/scenarios/MoneyFlowsTile';
 import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
 import { PropertySummaryCard } from '@/components/scenarios/PropertySummaryCard';
 import { HomeEquityChart } from '@/components/scenarios/HomeEquityChart';
+import { RetirementCoach } from '@/components/scenarios/RetirementCoach';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { useProperties } from '@/hooks/useProperties';
+import { useStateTaxRules } from '@/hooks/useStateTaxRules';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_COLORS } from '@/lib/correlationMatrix';
 import { AssetAllocation } from '@/lib/assetClassification';
 
@@ -63,7 +65,10 @@ export default function Scenarios() {
   const portfolio = usePortfolioData();
   
   // Fetch properties for real estate integration
-  const { primaryResidence, totalEquity } = useProperties();
+  const { primaryResidence, totalEquity, totalPropertyValue } = useProperties();
+  
+  // Fetch state tax rules for coach
+  const { getRule } = useStateTaxRules();
   
   // Fetch user rate assumptions
   const { assumptions: rateAssumptions } = useRateAssumptions();
@@ -233,6 +238,62 @@ export default function Scenarios() {
 
   const yearsToRetirement = formValues.retirement_age - formValues.current_age;
 
+  // Calculate sanitized plan summary for AI Coach (no PII)
+  const coachPlanSummary = useMemo(() => {
+    const currentState = 'GA'; // TODO: Pull from user profile
+    const currentStateRule = getRule(currentState);
+    const destinationState = primaryResidence?.relocation_state;
+    const destinationStateRule = destinationState ? getRule(destinationState) : undefined;
+
+    const annualSpending = formValues.monthly_retirement_spending * 12;
+    const withdrawalRate = currentSavings > 0 ? (annualSpending / currentSavings) * 100 : 0;
+    
+    // Estimate annual state tax (simplified)
+    const estimatedTaxableIncome = annualSpending;
+    const annualStateTax = currentStateRule && currentStateRule.rate_type !== 'none' 
+      ? estimatedTaxableIncome * (currentStateRule.top_marginal_rate / 100)
+      : 0;
+    
+    // Property tax based on home value
+    const homeValue = totalPropertyValue || 500000;
+    const annualPropertyTax = currentStateRule 
+      ? homeValue * (currentStateRule.property_tax_rate / 100)
+      : 0;
+
+    // Destination state taxes
+    const destinationStateTax = destinationStateRule && destinationStateRule.rate_type !== 'none'
+      ? estimatedTaxableIncome * (destinationStateRule.top_marginal_rate / 100)
+      : 0;
+
+    return {
+      successScore: simulationResult?.successRate || 0,
+      withdrawalRate,
+      annualStateTax,
+      annualPropertyTax,
+      estateValueAt100: simulationResult?.percentiles[2]?.slice(-1)[0] || 0,
+      currentState,
+      destinationState: destinationState || undefined,
+      destinationStateTax: destinationState ? destinationStateTax : undefined,
+      ssFilingAge: 67, // TODO: Pull from scenario
+      monthlySpending: formValues.monthly_retirement_spending,
+      monthlyIncome: formValues.monthly_retirement_spending, // Simplified
+      housingCostPercent: primaryResidence 
+        ? (primaryResidence.mortgage_monthly_payment / formValues.monthly_retirement_spending) * 100
+        : 25,
+      currentAge: formValues.current_age,
+      retirementAge: formValues.retirement_age,
+      isMarried: false, // TODO: Pull from profile
+      portfolioValue: currentSavings,
+    };
+  }, [
+    simulationResult, 
+    formValues, 
+    currentSavings, 
+    primaryResidence, 
+    totalPropertyValue,
+    getRule
+  ]);
+
   return (
     <DashboardLayout>
       <div className="mb-8">
@@ -286,6 +347,11 @@ export default function Scenarios() {
           retirementAge={formValues.retirement_age}
           currentAge={formValues.current_age}
         />
+      </div>
+
+      {/* AI Retirement Coach */}
+      <div className="mb-8">
+        <RetirementCoach planSummary={coachPlanSummary} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
