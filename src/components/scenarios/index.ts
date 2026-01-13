@@ -33,6 +33,8 @@ export { SocialSecurityStrategy } from './SocialSecurityStrategy';
 export { SocialSecurityClaimingExplorer } from './SocialSecurityClaimingExplorer';
 export { SSStrategyComparisonChart } from './SSStrategyComparisonChart';
 export { LifetimeBenefitsChart } from './LifetimeBenefitsChart';
+export { SpousalBenefitOptimizer } from './SpousalBenefitOptimizer';
+export { StateTaxComparisonMatrix } from './StateTaxComparisonMatrix';
 
 // Other Components
 export { MedicalCostWatch } from './MedicalCostWatch';
