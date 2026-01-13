@@ -512,3 +512,244 @@ export function projectMedicareHealthCosts(
   
   return projections;
 }
+
+// ============= SIMULATION INTEGRATION =============
+
+export interface SimulationHealthcareParams {
+  healthCondition: HealthCondition;
+  medicareChoice: MedicareChoice;
+  isMarried: boolean;
+  medicalInflationRate: number;
+  targetAge: number;
+}
+
+export interface AnnualHealthcareCost {
+  basePremiums: number;
+  irmaaSurcharge: number;
+  outOfPocket: number;
+  partDCap: number;
+  endOfLifeMultiplier: number;
+  totalCost: number;
+  irmaaResult: IRMAAResult;
+  isEndOfLife: boolean;
+}
+
+/**
+ * Calculate healthcare costs for a specific simulation year
+ * Used by Monte Carlo engine with dynamic MAGI lookback
+ */
+export function calculateSimulationHealthcareCost(
+  age: number,
+  magiFromPriorYear: number, // IRMAA uses 2-year lookback, simulation uses prior year estimate
+  params: SimulationHealthcareParams
+): AnnualHealthcareCost {
+  // Not Medicare eligible before 65
+  if (age < 65) {
+    return {
+      basePremiums: 0,
+      irmaaSurcharge: 0,
+      outOfPocket: 0,
+      partDCap: 0,
+      endOfLifeMultiplier: 1.0,
+      totalCost: 0,
+      isEndOfLife: false,
+      irmaaResult: {
+        bracket: IRMAA_BRACKETS_2026[0],
+        monthlyPartB: 0,
+        monthlyPartD: 0,
+        annualPremium: 0,
+        surchargeAmount: 0,
+        isAboveStandard: false,
+      },
+    };
+  }
+
+  const yearsFromBase = age - 65;
+  
+  // Calculate IRMAA based on prior year MAGI (2-year lookback in reality)
+  const irmaaResult = calculateIRMAA(magiFromPriorYear, params.isMarried);
+  
+  // Base premiums with medical inflation
+  const basePartB = projectMedicareCosts(MEDICARE_PART_B_STANDARD, yearsFromBase, params.medicalInflationRate);
+  const basePartD = projectMedicareCosts(MEDICARE_PART_D_BASE, yearsFromBase, params.medicalInflationRate);
+  const basePremiums = (basePartB + basePartD) * 12;
+  
+  // IRMAA surcharge (already includes inflation-adjusted amounts)
+  const inflatedPartB = projectMedicareCosts(irmaaResult.monthlyPartB, yearsFromBase, params.medicalInflationRate);
+  const inflatedPartD = projectMedicareCosts(irmaaResult.monthlyPartD, yearsFromBase, params.medicalInflationRate);
+  const irmaaSurcharge = ((inflatedPartB - basePartB) + (inflatedPartD - basePartD)) * 12;
+  
+  // Medigap surcharge if applicable
+  const medigapCost = params.medicareChoice === 'medigap' 
+    ? projectMedicareCosts(175, yearsFromBase, params.medicalInflationRate) * 12 
+    : 0;
+  
+  // Out-of-pocket based on health condition
+  const baseOOP = HEALTH_INCIDENTALS[params.healthCondition];
+  const outOfPocket = projectMedicareCosts(baseOOP, yearsFromBase, params.medicalInflationRate);
+  
+  // Part D cap for poor health
+  const partDCap = params.healthCondition === 'poor'
+    ? projectMedicareCosts(PART_D_PRESCRIPTION_CAP, yearsFromBase, params.medicalInflationRate)
+    : 0;
+  
+  // End-of-life spike: final 3-5 years (using 5 for simulation)
+  const yearsToTarget = params.targetAge - age;
+  const isEndOfLife = yearsToTarget <= 5 && yearsToTarget >= 0;
+  const endOfLifeMultiplier = isEndOfLife ? END_OF_LIFE_MULTIPLIER : 1.0;
+  
+  // Calculate total
+  const preTotalCost = basePremiums + irmaaSurcharge + medigapCost + outOfPocket + partDCap;
+  const totalCost = preTotalCost * endOfLifeMultiplier;
+  
+  return {
+    basePremiums: basePremiums + medigapCost,
+    irmaaSurcharge,
+    outOfPocket,
+    partDCap,
+    endOfLifeMultiplier,
+    totalCost,
+    isEndOfLife,
+    irmaaResult,
+  };
+}
+
+// ============= IRMAA BRACKET CHANGE DETECTION =============
+
+export interface IRMAABracketChange {
+  previousBracket: IRMAABracket;
+  newBracket: IRMAABracket;
+  annualPremiumIncrease: number;
+  magiThresholdExceeded: number;
+  triggerAmount: number; // How much the income exceeded the threshold
+}
+
+/**
+ * Check if a proposed income change would push user into higher IRMAA bracket
+ * Used for Roth conversion and RMD planning alerts
+ */
+export function checkIRMAABracketChange(
+  currentMAGI: number,
+  proposedIncomeIncrease: number,
+  isMarried: boolean
+): IRMAABracketChange | null {
+  const currentIRMAA = calculateIRMAA(currentMAGI, isMarried);
+  const newMAGI = currentMAGI + proposedIncomeIncrease;
+  const newIRMAA = calculateIRMAA(newMAGI, isMarried);
+  
+  // No change in bracket
+  if (currentIRMAA.bracket.label === newIRMAA.bracket.label) {
+    return null;
+  }
+  
+  // Find which threshold was exceeded
+  const thresholdExceeded = isMarried 
+    ? newIRMAA.bracket.jointMin 
+    : newIRMAA.bracket.singleMin;
+  
+  return {
+    previousBracket: currentIRMAA.bracket,
+    newBracket: newIRMAA.bracket,
+    annualPremiumIncrease: newIRMAA.annualPremium - currentIRMAA.annualPremium,
+    magiThresholdExceeded: thresholdExceeded,
+    triggerAmount: newMAGI - thresholdExceeded,
+  };
+}
+
+/**
+ * Get the nearest IRMAA bracket threshold above current MAGI
+ * Useful for showing "headroom" before next bracket
+ */
+export function getNextIRMAAThreshold(
+  currentMAGI: number,
+  isMarried: boolean
+): { threshold: number; headroom: number; nextBracketLabel: string } | null {
+  const currentBracketIndex = IRMAA_BRACKETS_2026.findIndex((bracket, i) => {
+    const min = isMarried ? bracket.jointMin : bracket.singleMin;
+    const max = isMarried ? bracket.jointMax : bracket.singleMax;
+    return currentMAGI >= min && currentMAGI < max;
+  });
+  
+  // Already at highest bracket
+  if (currentBracketIndex === IRMAA_BRACKETS_2026.length - 1) {
+    return null;
+  }
+  
+  const nextBracket = IRMAA_BRACKETS_2026[currentBracketIndex + 1];
+  const threshold = isMarried ? nextBracket.jointMin : nextBracket.singleMin;
+  
+  return {
+    threshold,
+    headroom: threshold - currentMAGI,
+    nextBracketLabel: nextBracket.label,
+  };
+}
+
+// ============= HEALTHCARE PROJECTION FOR CHARTS =============
+
+export interface HealthcareProjectionPoint {
+  age: number;
+  year: number;
+  basePremiums: number;
+  irmaaSurcharge: number;
+  outOfPocket: number;
+  endOfLifeSurge: number;
+  total: number;
+  isEndOfLife: boolean;
+  irmaaBracket: string;
+}
+
+/**
+ * Generate comprehensive healthcare projection for visualization
+ * Age 65 to targetAge with all cost components separated
+ */
+export function generateHealthcareProjection(
+  currentAge: number,
+  targetAge: number,
+  baseMAGI: number,
+  annualMAGIGrowth: number, // e.g., 0.02 for 2% annual growth
+  healthCondition: HealthCondition,
+  medicareChoice: MedicareChoice,
+  isMarried: boolean,
+  medicalInflationRate: number = MEDICAL_INFLATION_HISTORICAL
+): HealthcareProjectionPoint[] {
+  const projections: HealthcareProjectionPoint[] = [];
+  const currentYear = new Date().getFullYear();
+  const startAge = Math.max(65, currentAge);
+  
+  for (let age = startAge; age <= targetAge; age++) {
+    const yearsFromNow = age - currentAge;
+    const year = currentYear + yearsFromNow;
+    
+    // Project MAGI with growth
+    const projectedMAGI = baseMAGI * Math.pow(1 + annualMAGIGrowth, yearsFromNow);
+    
+    const params: SimulationHealthcareParams = {
+      healthCondition,
+      medicareChoice,
+      isMarried,
+      medicalInflationRate,
+      targetAge,
+    };
+    
+    const costs = calculateSimulationHealthcareCost(age, projectedMAGI, params);
+    
+    // Separate end-of-life surge from base costs for chart
+    const baseTotalWithoutEOL = costs.basePremiums + costs.irmaaSurcharge + costs.outOfPocket + costs.partDCap;
+    const endOfLifeSurge = costs.isEndOfLife ? baseTotalWithoutEOL * (costs.endOfLifeMultiplier - 1) : 0;
+    
+    projections.push({
+      age,
+      year,
+      basePremiums: costs.basePremiums,
+      irmaaSurcharge: costs.irmaaSurcharge,
+      outOfPocket: costs.outOfPocket + costs.partDCap,
+      endOfLifeSurge,
+      total: costs.totalCost,
+      isEndOfLife: costs.isEndOfLife,
+      irmaaBracket: costs.irmaaResult.bracket.label,
+    });
+  }
+  
+  return projections;
+}

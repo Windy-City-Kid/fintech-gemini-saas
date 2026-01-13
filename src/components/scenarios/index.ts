@@ -36,3 +36,7 @@ export { PlanSummary } from './PlanSummary';
 export { TaxProfileCard } from './TaxProfileCard';
 export { RelocationExplorer } from './RelocationExplorer';
 export { LifetimeBenefitsChart } from './LifetimeBenefitsChart';
+
+// Healthcare & IRMAA
+export { HealthcareCostChart } from './HealthcareCostChart';
+export { IRMAAWarningModal, useIRMAAAlert } from './IRMAAWarningModal';
