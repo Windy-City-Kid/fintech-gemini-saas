@@ -20,6 +20,7 @@ import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
 import { ResilienceMeter } from '@/components/scenarios/ResilienceMeter';
 import { ExportReportButton } from '@/components/scenarios/ExportReportButton';
+import { ProfessionalReportButton } from '@/components/scenarios/ProfessionalReportButton';
 import { MoneyFlowsTile } from '@/components/scenarios/MoneyFlowsTile';
 import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
 import { PropertySummaryCard } from '@/components/scenarios/PropertySummaryCard';
@@ -305,6 +306,15 @@ export default function Scenarios() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <ProfessionalReportButton
+              simulationResult={simulationResult}
+              userName={user?.user_metadata?.full_name || user?.email || 'Investor'}
+              currentAge={formValues.current_age}
+              retirementAge={formValues.retirement_age}
+              portfolioBalance={currentSavings}
+              homeEquity={totalEquity}
+              disabled={simulating}
+            />
             <ExportReportButton
               simulationResult={simulationResult}
               userName={user?.user_metadata?.full_name || user?.email || 'Investor'}
