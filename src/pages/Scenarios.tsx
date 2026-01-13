@@ -21,6 +21,7 @@ import { MonteCarloChart } from '@/components/scenarios/MonteCarloChart';
 import { SimulationStats } from '@/components/scenarios/SimulationStats';
 import { GuardrailChart } from '@/components/scenarios/GuardrailChart';
 import { ResilienceMeter } from '@/components/scenarios/ResilienceMeter';
+import { SafeSpendingDashboard } from '@/components/scenarios/SafeSpendingDashboard';
 import { ExportReportButton } from '@/components/scenarios/ExportReportButton';
 import { ProfessionalReportButton } from '@/components/scenarios/ProfessionalReportButton';
 import { MoneyFlowsTile } from '@/components/scenarios/MoneyFlowsTile';
@@ -402,6 +403,11 @@ export default function Scenarios() {
           />
         </div>
       )}
+
+      {/* Safe Spending Dashboard - Primary Card */}
+      <div className="mb-8">
+        <SafeSpendingDashboard />
+      </div>
 
       {/* Simulation Stats */}
       <div className="mb-8">
