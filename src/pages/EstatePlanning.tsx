@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CategoryPageLayout } from '@/components/layout/CategoryPageLayout';
 import { useEstateData } from '@/hooks/useEstateData';
@@ -9,11 +10,15 @@ import {
   CharitableBequestsManager,
   LegacyGoalCard,
   AssetTransferSummary,
+  EstateStateSelector,
+  LegacyTimeline,
 } from '@/components/estate';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBeneficiaries } from '@/hooks/useBeneficiaries';
 
 export default function EstatePlanning() {
+  const [selectedState, setSelectedState] = useState('CA');
+  
   const {
     isLoading,
     legacyGoal,
@@ -26,10 +31,17 @@ export default function EstatePlanning() {
     stepUpBasis,
     estatePercentiles,
     isSimulationRunning,
+    scenario,
   } = useEstateData();
 
   const { beneficiaries } = useBeneficiaries();
   const hasSpouseBeneficiary = beneficiaries.some(b => b.relationship === 'spouse');
+  
+  // Calculate brokerage balance for timeline
+  const brokerageBalance = estateAssets
+    .filter(a => a.type === 'brokerage')
+    .reduce((sum, a) => sum + a.value, 0);
+  const brokarageCostBasis = brokerageBalance * 0.7;
 
   if (isLoading) {
     return (
@@ -61,8 +73,13 @@ export default function EstatePlanning() {
         showManageConnections={false}
       >
         <div className="space-y-6">
-          {/* Row 1: Legacy Goal + Monte Carlo Estate Report */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Row 1: State Selector + Legacy Goal + Monte Carlo */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <EstateStateSelector
+              selectedState={selectedState}
+              onStateChange={setSelectedState}
+              grossEstate={totalEstateValue}
+            />
             <LegacyGoalCard
               currentGoal={legacyGoal}
               projectedEstateValue={estateProjection?.netToHeirs || totalEstateValue}
@@ -75,11 +92,23 @@ export default function EstatePlanning() {
             />
           </div>
 
-          {/* Row 2: Estate Value Projection */}
+          {/* Row 2: Interactive Legacy Timeline */}
+          <LegacyTimeline
+            currentAge={scenario?.current_age || 55}
+            currentNetWorth={totalEstateValue}
+            stateCode={selectedState}
+            isMarried={hasSpouseBeneficiary}
+            traditionalIraBalance={traditionalIraBalance}
+            brokerageBalance={brokerageBalance}
+            brokarageCostBasis={brokarageCostBasis}
+            longevityAge={longevityAge}
+          />
+
+          {/* Row 3: Estate Value Projection */}
           <EstateValueProjection
             projection={estateProjection}
             longevityAge={longevityAge}
-            stateCode="CA"
+            stateCode={selectedState}
             legacyGoal={legacyGoal}
           />
 
