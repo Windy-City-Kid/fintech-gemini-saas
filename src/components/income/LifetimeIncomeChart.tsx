@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useId } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Line, ComposedChart } from 'recharts';
 import { IncomeSource, IncomeCategory } from '@/hooks/useIncomeSources';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Calendar, User, Minus } from 'lucide-react';
+import { useSyncedChartHover } from '@/contexts/ChartHoverContext';
+import { SnapCursor } from '@/components/charts/EnhancedTooltip';
 
 interface LifetimeIncomeChartProps {
   sources: IncomeSource[];
@@ -12,6 +14,8 @@ interface LifetimeIncomeChartProps {
   annualDebt: number;
   estimatedTaxes: number;
   rmdProjections?: { age: number; amount: number }[];
+  baselineData?: Record<string, any>[];
+  showDelta?: boolean;
 }
 
 const CATEGORY_COLORS: Record<IncomeCategory, string> = {
@@ -40,42 +44,118 @@ const formatCurrency = (value: number) => {
   return `$${Math.round(value)}`;
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface EnhancedTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  label?: any;
+  showDelta?: boolean;
+  baselineData?: Record<string, any>[];
+}
+
+const EnhancedIncomeTooltip = ({ active, payload, label, showDelta, baselineData }: EnhancedTooltipProps) => {
   if (!active || !payload) return null;
   
-  const total = payload.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0);
+  const data = payload[0]?.payload;
+  if (!data) return null;
+  
+  const incomeItems = payload.filter((p: any) => p.dataKey !== 'expenseLine' && p.value > 0);
+  const total = incomeItems.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0);
   const expenseLine = payload.find((p: any) => p.dataKey === 'expenseLine');
   const gap = expenseLine ? total - expenseLine.value : 0;
   
+  // Find baseline data for delta comparison
+  const baseline = baselineData?.find(b => b.age === data.age);
+  const baselineTotal = baseline 
+    ? Object.entries(baseline)
+        .filter(([key]) => key in CATEGORY_COLORS)
+        .reduce((sum, [_, val]) => sum + (Number(val) || 0), 0)
+    : null;
+  
+  const hasData = incomeItems.length > 0;
+  
   return (
-    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 text-sm">
-      <p className="font-semibold mb-2">Age {label}</p>
-      {payload
-        .filter((entry: any) => entry.dataKey !== 'expenseLine' && entry.value > 0)
-        .map((entry: any, index: number) => (
-          <div key={index} className="flex justify-between gap-4">
-            <span style={{ color: entry.color }}>{entry.name}</span>
-            <span className="font-mono">{formatCurrency(entry.value)}</span>
-          </div>
-        ))}
-      <div className="border-t border-border mt-2 pt-2">
-        <div className="flex justify-between gap-4 font-medium">
-          <span>Total Income</span>
-          <span className="font-mono">{formatCurrency(total)}</span>
+    <div 
+      className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-4 text-sm min-w-[220px] animate-scale-in"
+      style={{ transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 pb-3 mb-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="font-semibold">{data.year}</span>
         </div>
-        {expenseLine && (
-          <>
-            <div className="flex justify-between gap-4 text-blue-500">
-              <span>Expenses + Taxes</span>
-              <span className="font-mono">{formatCurrency(expenseLine.value)}</span>
-            </div>
-            <div className={`flex justify-between gap-4 font-medium ${gap >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-              <span>{gap >= 0 ? 'Surplus' : 'Gap'}</span>
-              <span className="font-mono">{formatCurrency(Math.abs(gap))}</span>
-            </div>
-          </>
-        )}
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <User className="h-3.5 w-3.5" />
+          <span className="text-xs">Age {data.age}</span>
+        </div>
       </div>
+
+      {/* Empty State */}
+      {!hasData && (
+        <div className="py-4 text-center text-muted-foreground">
+          <Minus className="h-5 w-5 mx-auto mb-1 opacity-50" />
+          <p className="text-xs">No projected income</p>
+        </div>
+      )}
+
+      {/* Income Breakdown */}
+      {hasData && (
+        <div className="space-y-2">
+          {incomeItems.map((entry: any, index: number) => {
+            const baselineValue = baseline?.[entry.dataKey];
+            const delta = showDelta && baselineValue !== undefined ? entry.value - baselineValue : null;
+            
+            return (
+              <div key={index} className="flex items-center justify-between gap-3 group">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div 
+                    className="w-3 h-3 rounded-sm flex-shrink-0 transition-transform group-hover:scale-110"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="truncate text-sm">{entry.name}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="font-mono font-medium">{formatCurrency(entry.value)}</span>
+                  {delta !== null && delta !== 0 && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}`}>
+                      {delta > 0 ? '+' : ''}{formatCurrency(delta)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Totals */}
+      {hasData && (
+        <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+          <div className="flex justify-between gap-4">
+            <span className="font-medium">Total Income</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-bold">{formatCurrency(total)}</span>
+              {showDelta && baselineTotal !== null && total !== baselineTotal && (
+                <span className={`text-xs px-1.5 py-0.5 rounded ${total > baselineTotal ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}`}>
+                  {total > baselineTotal ? '+' : ''}{formatCurrency(total - baselineTotal)}
+                </span>
+              )}
+            </div>
+          </div>
+          {expenseLine && (
+            <>
+              <div className="flex justify-between gap-4 text-blue-500">
+                <span>Expenses + Taxes</span>
+                <span className="font-mono">{formatCurrency(expenseLine.value)}</span>
+              </div>
+              <div className={`flex justify-between gap-4 font-medium ${gap >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                <span>{gap >= 0 ? 'Surplus' : 'Gap'}</span>
+                <span className="font-mono">{formatCurrency(Math.abs(gap))}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -88,7 +168,12 @@ export function LifetimeIncomeChart({
   annualDebt,
   estimatedTaxes,
   rmdProjections = [],
+  baselineData,
+  showDelta = false,
 }: LifetimeIncomeChartProps) {
+  const chartId = useId();
+  const { hoveredAge, handleMouseMove, handleMouseLeave, isSourceChart } = useSyncedChartHover(chartId);
+  
   const chartData = useMemo(() => {
     const data: Record<string, any>[] = [];
     const currentYear = new Date().getFullYear();
@@ -172,7 +257,12 @@ export function LifetimeIncomeChart({
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <ComposedChart 
+              data={chartData} 
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            >
               <XAxis 
                 dataKey="age" 
                 tickFormatter={(v) => `${v}`}
@@ -183,7 +273,11 @@ export function LifetimeIncomeChart({
                 tick={{ fontSize: 12 }}
                 width={60}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip 
+                content={<EnhancedIncomeTooltip showDelta={showDelta} baselineData={baselineData} />}
+                cursor={<SnapCursor />}
+                isAnimationActive={false}
+              />
               <Legend />
               
               <ReferenceLine 
@@ -192,6 +286,17 @@ export function LifetimeIncomeChart({
                 strokeDasharray="5 5"
                 label={{ value: 'Retire', position: 'top', fontSize: 10 }}
               />
+              
+              {/* Synced hover line */}
+              {hoveredAge !== null && !isSourceChart && (
+                <ReferenceLine 
+                  x={hoveredAge} 
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  style={{ opacity: 0.6, transition: 'all 150ms ease-out' }}
+                />
+              )}
               
               {activeCategories.map(category => (
                 <Bar
