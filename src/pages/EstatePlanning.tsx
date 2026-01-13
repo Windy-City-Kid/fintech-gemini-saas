@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -21,6 +22,7 @@ const formatCurrency = (amount: number) => {
 
 export default function EstatePlanning() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<{
     spouse_name: string | null;
     spouse_dob: string | null;
@@ -40,7 +42,7 @@ export default function EstatePlanning() {
           .from('profiles')
           .select('spouse_name, spouse_dob, spouse_retirement_age, spouse_pia, legacy_goal_amount')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error && error.code !== 'PGRST116') throw error;
         setProfile(data);
@@ -129,7 +131,7 @@ export default function EstatePlanning() {
           subtitle={hasSpouse ? profile?.spouse_name || 'Partner configured' : 'Add spouse details for household planning'}
           icon={<Heart className="h-5 w-5" />}
           isComplete={hasSpouse}
-          onStart={hasSpouse ? undefined : () => window.location.href = '/settings'}
+          onStart={hasSpouse ? undefined : () => navigate('/settings')}
           startLabel="Add Spouse"
         >
           {hasSpouse && (

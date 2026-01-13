@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PiggyBank, Wallet, TrendingUp, Landmark } from 'lucide-react';
 import { AddAccountDialog } from '@/components/dashboard/AddAccountDialog';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 interface Account {
   id: string;
@@ -30,6 +31,7 @@ const getAccountIcon = (type: string) => {
 
 export default function Accounts() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function Accounts() {
         description="Track all your financial accounts in one place"
         previousPage={{ label: 'Connections', path: '/connections' }}
         nextPage={{ label: 'Home and Real Estate', path: '/real-estate' }}
-        onManageConnections={() => window.location.href = '/connections'}
+        onManageConnections={() => navigate('/connections')}
       >
         <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
           <CardContent className="p-6 flex items-center justify-between">

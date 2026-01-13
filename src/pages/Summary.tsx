@@ -78,7 +78,7 @@ export default function Summary() {
           .from('profiles')
           .select('legacy_goal_amount, spouse_name')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         // Calculate net worth
         const accountsTotal = accounts?.reduce((sum, a) => sum + (a.current_balance || 0), 0) || 0;

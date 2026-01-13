@@ -4,10 +4,12 @@ import { CategoryCard } from '@/components/layout/CategoryCard';
 import { usePlaidLink } from '@/hooks/usePlaidLink';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Connections() {
   const { open, ready, isLoading, isSyncing, fetchLinkToken } = usePlaidLink();
+  const navigate = useNavigate();
 
   return (
     <DashboardLayout>
@@ -50,7 +52,7 @@ export default function Connections() {
           title="Manual Account Entry"
           subtitle="Add accounts that can't be connected automatically"
           icon={<CheckCircle2 className="h-5 w-5" />}
-          onStart={() => window.location.href = '/accounts'}
+          onStart={() => navigate('/accounts')}
           startLabel="Add Manually"
         />
       </CategoryPageLayout>
