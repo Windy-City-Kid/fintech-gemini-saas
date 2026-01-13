@@ -1,19 +1,25 @@
 /**
  * Estate Data Hook
  * Aggregates portfolio, property, and profile data for estate planning
+ * Now includes Monte Carlo integration for probabilistic projections
  */
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useProperties } from './useProperties';
+import { useBeneficiaries } from './useBeneficiaries';
+import { useCharitableBequests } from './useCharitableBequests';
+import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { 
   EstateAsset, 
-  Beneficiary, 
+  Beneficiary as EstateBeneficiary, 
   CharitableBequest,
   projectEstate,
   EstateProjectionResult,
+  calculateStepUpBasis,
+  calculateHeir10YearTaxLiability,
 } from '@/lib/estateCalculator';
 import { toast } from 'sonner';
 
@@ -24,10 +30,19 @@ export interface EstateProfile {
   longevityAge: number;
 }
 
+export interface EstatePercentiles {
+  p10: number;
+  p50: number;
+  p90: number;
+}
+
 export function useEstateData() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { properties } = useProperties();
+  const { beneficiaries: dbBeneficiaries } = useBeneficiaries();
+  const { bequests: dbBequests } = useCharitableBequests();
+  const { result: mcResult, isRunning: isSimulationRunning, runSimulation } = useMonteCarloWorker();
 
   // Fetch accounts directly
   const { data: accounts = [] } = useQuery({
@@ -62,7 +77,7 @@ export function useEstateData() {
     enabled: !!user,
   });
 
-  // Fetch active scenario for state code
+  // Fetch active scenario for state code and simulation params
   const { data: scenario, isLoading: scenarioLoading } = useQuery({
     queryKey: ['estate-scenario', user?.id],
     queryFn: async () => {
@@ -70,7 +85,7 @@ export function useEstateData() {
       
       const { data, error } = await supabase
         .from('scenarios')
-        .select('primary_life_expectancy')
+        .select('primary_life_expectancy, current_age, retirement_age, monthly_retirement_spending, is_married, primary_pia, spouse_pia, primary_claiming_age, spouse_claiming_age')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .maybeSingle();
@@ -81,15 +96,14 @@ export function useEstateData() {
     enabled: !!user,
   });
 
-  // Fetch charitable bequests (stored in a simple table or as JSON in profile)
-  const { data: bequests = [] } = useQuery({
-    queryKey: ['charitable-bequests', user?.id],
-    queryFn: async () => {
-      // For now, return empty array - can be extended with a dedicated table
-      return [] as CharitableBequest[];
-    },
-    enabled: !!user,
-  });
+  // Convert charitable bequests to estate calculator format
+  const charitableBequests = useMemo((): CharitableBequest[] => {
+    return dbBequests.map(b => ({
+      name: b.organization_name,
+      amount: b.amount,
+      isPercentage: b.is_percentage,
+    }));
+  }, [dbBequests]);
 
   // Convert portfolio holdings to estate assets
   const estateAssets = useMemo((): EstateAsset[] => {
@@ -133,11 +147,33 @@ export function useEstateData() {
     return estateAssets.reduce((sum, asset) => sum + asset.value, 0);
   }, [estateAssets]);
 
-  // Default beneficiaries (can be extended with a dedicated table)
-  const beneficiaries = useMemo((): Beneficiary[] => {
-    const list: Beneficiary[] = [];
+  // Traditional IRA/401k balance for 10-year rule
+  const traditionalIraBalance = useMemo(() => {
+    return estateAssets
+      .filter(a => a.type === 'ira' || a.type === '401k')
+      .reduce((sum, a) => sum + a.value, 0);
+  }, [estateAssets]);
+
+  // Step-up basis calculation
+  const stepUpBasis = useMemo(() => {
+    return calculateStepUpBasis(estateAssets);
+  }, [estateAssets]);
+
+  // Convert beneficiaries to estate calculator format
+  const beneficiaries = useMemo((): EstateBeneficiary[] => {
+    const list: EstateBeneficiary[] = [];
     
-    if (profile?.spouse_name) {
+    // Add from database beneficiaries
+    dbBeneficiaries.forEach(b => {
+      list.push({
+        name: b.name,
+        relationship: b.relationship,
+        percentage: b.allocation_percentage,
+      });
+    });
+    
+    // If no beneficiaries but has spouse, add spouse as default
+    if (list.length === 0 && profile?.spouse_name) {
       list.push({
         name: profile.spouse_name,
         relationship: 'spouse',
@@ -146,7 +182,7 @@ export function useEstateData() {
     }
     
     return list;
-  }, [profile]);
+  }, [dbBeneficiaries, profile]);
 
   // Calculate estate projection
   const estateProjection = useMemo((): EstateProjectionResult | null => {
@@ -156,11 +192,43 @@ export function useEstateData() {
       totalAssets: totalEstateValue,
       stateCode: 'CA', // Default, should come from user settings
       isMarried: !!profile?.spouse_name,
-      charitableBequests: bequests,
+      charitableBequests,
       assets: estateAssets,
       beneficiaries,
     });
-  }, [totalEstateValue, profile, bequests, estateAssets, beneficiaries]);
+  }, [totalEstateValue, profile, charitableBequests, estateAssets, beneficiaries]);
+
+  // Extract estate percentiles from Monte Carlo results
+  const estatePercentiles = useMemo((): EstatePercentiles | null => {
+    if (!mcResult?.percentiles) return null;
+    
+    // Use the ending balance percentiles as estate value projections
+    const longevityIndex = (scenario?.primary_life_expectancy || 100) - (scenario?.current_age || 55);
+    const p5Array = mcResult.percentiles.p5 || [];
+    const p50Array = mcResult.percentiles.p50 || [];
+    const p95Array = mcResult.percentiles.p95 || [];
+    
+    return {
+      p10: p5Array[Math.min(longevityIndex, p5Array.length - 1)] || 0,
+      p50: p50Array[Math.min(longevityIndex, p50Array.length - 1)] || 0,
+      p90: p95Array[Math.min(longevityIndex, p95Array.length - 1)] || 0,
+    };
+  }, [mcResult, scenario]);
+
+  // Calculate heir 10-year tax liabilities
+  const heirTaxLiabilities = useMemo(() => {
+    return dbBeneficiaries
+      .filter(b => b.relationship !== 'spouse' && b.receives_traditional_ira)
+      .map(b => ({
+        name: b.name,
+        iraShare: traditionalIraBalance * (b.allocation_percentage / 100),
+        taxLiability: calculateHeir10YearTaxLiability(
+          traditionalIraBalance * (b.allocation_percentage / 100),
+          false,
+          b.estimated_marginal_rate
+        ),
+      }));
+  }, [dbBeneficiaries, traditionalIraBalance]);
 
   // Update legacy goal
   const updateLegacyGoal = useMutation({
@@ -189,10 +257,18 @@ export function useEstateData() {
     totalEstateValue,
     estateAssets,
     beneficiaries,
-    charitableBequests: bequests,
+    charitableBequests,
     estateProjection,
     longevityAge: scenario?.primary_life_expectancy || 100,
     isMarried: !!profile?.spouse_name,
     updateLegacyGoal: updateLegacyGoal.mutate,
+    traditionalIraBalance,
+    stepUpBasis,
+    heirTaxLiabilities,
+    // Monte Carlo integration
+    estatePercentiles,
+    isSimulationRunning,
+    runSimulation,
+    scenario,
   };
 }
