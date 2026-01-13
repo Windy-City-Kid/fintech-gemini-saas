@@ -4,9 +4,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, TrendingUp, DollarSign, Calculator, ArrowRight, Sparkles, Home } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { MapPin, TrendingUp, DollarSign, Calculator, ArrowRight, Sparkles, Home, AlertTriangle, Scale } from 'lucide-react';
 import { useStateTaxRules, StateTaxRule } from '@/hooks/useStateTaxRules';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface RelocationExplorerProps {
   currentState: string;
@@ -16,16 +17,22 @@ interface RelocationExplorerProps {
   portfolioValue: number;
   ssIncome: number;
   homeEquity: number;
+  homeValue: number;
   onSelectDestination?: (stateCode: string) => void;
 }
 
 interface SimulationComparison {
-  currentLifetimeTaxes: number;
-  newLifetimeTaxes: number;
+  currentLifetimeIncomeTax: number;
+  currentLifetimePropertyTax: number;
+  newLifetimeIncomeTax: number;
+  newLifetimePropertyTax: number;
   currentEstateAt100: number;
   newEstateAt100: number;
   lifetimeSpendingIncrease: number;
   legacyIncreasePercent: number;
+  annualIncomeTaxSavings: number;
+  annualPropertyTaxChange: number;
+  netAnnualSavings: number;
 }
 
 function formatCurrency(amount: number): string {
@@ -58,6 +65,7 @@ export function RelocationExplorer({
   portfolioValue,
   ssIncome,
   homeEquity,
+  homeValue,
   onSelectDestination,
 }: RelocationExplorerProps) {
   const { rules, getRule, isLoading } = useStateTaxRules();
@@ -66,7 +74,7 @@ export function RelocationExplorer({
   const currentRule = getRule(currentState);
   const destinationRule = destinationState ? getRule(destinationState) : null;
 
-  // Run simplified comparison simulation
+  // Run comparison simulation with income tax AND property tax
   const comparison = useMemo<SimulationComparison | null>(() => {
     if (!currentRule || !destinationRule) return null;
 
@@ -74,18 +82,31 @@ export function RelocationExplorer({
     const retirementYears = 100 - retirementAge;
     const annualSpending = monthlySpending * 12;
 
-    // Calculate lifetime taxes for current state
-    let currentLifetimeTaxes = 0;
-    let newLifetimeTaxes = 0;
+    // Property tax rates
+    const currentPropertyTaxRate = currentRule.property_tax_rate / 100;
+    const newPropertyTaxRate = destinationRule.property_tax_rate / 100;
+
+    // Calculate annual taxes at current spending level for first year (for trade-off insight)
+    let firstYearCurrentIncomeTax = 0;
+    let firstYearNewIncomeTax = 0;
+    const firstYearCurrentPropertyTax = homeValue * currentPropertyTaxRate;
+    const firstYearNewPropertyTax = homeValue * newPropertyTaxRate;
+
+    // Calculate lifetime taxes
+    let currentLifetimeIncomeTax = 0;
+    let newLifetimeIncomeTax = 0;
+    let currentLifetimePropertyTax = 0;
+    let newLifetimePropertyTax = 0;
     
     for (let year = 0; year < retirementYears; year++) {
       const age = retirementAge + year;
       const inflatedSpending = annualSpending * Math.pow(1.025, year);
+      const projectedHomeValue = homeValue * Math.pow(1.03, year);
       
-      // Estimate taxable income (withdrawal + SS portion)
+      // Estimate taxable income
       let taxableIncome = inflatedSpending;
       
-      // Current state tax
+      // Current state income tax
       if (currentRule.rate_type !== 'none') {
         let adjustedIncome = taxableIncome;
         if (!currentRule.social_security_taxable) {
@@ -94,10 +115,12 @@ export function RelocationExplorer({
         if (age >= 60 && currentRule.retirement_exclusion_amount > 0) {
           adjustedIncome = Math.max(0, adjustedIncome - currentRule.retirement_exclusion_amount);
         }
-        currentLifetimeTaxes += Math.max(0, adjustedIncome) * (currentRule.top_marginal_rate / 100);
+        const incomeTax = Math.max(0, adjustedIncome) * (currentRule.top_marginal_rate / 100);
+        currentLifetimeIncomeTax += incomeTax;
+        if (year === 0) firstYearCurrentIncomeTax = incomeTax;
       }
 
-      // New state tax
+      // New state income tax
       if (destinationRule.rate_type !== 'none') {
         let adjustedIncome = taxableIncome;
         if (!destinationRule.social_security_taxable) {
@@ -106,17 +129,25 @@ export function RelocationExplorer({
         if (age >= 60 && destinationRule.retirement_exclusion_amount > 0) {
           adjustedIncome = Math.max(0, adjustedIncome - destinationRule.retirement_exclusion_amount);
         }
-        newLifetimeTaxes += Math.max(0, adjustedIncome) * (destinationRule.top_marginal_rate / 100);
+        const incomeTax = Math.max(0, adjustedIncome) * (destinationRule.top_marginal_rate / 100);
+        newLifetimeIncomeTax += incomeTax;
+        if (year === 0) firstYearNewIncomeTax = incomeTax;
       }
+
+      // Property taxes (applied to appreciated home value)
+      currentLifetimePropertyTax += projectedHomeValue * currentPropertyTaxRate;
+      newLifetimePropertyTax += projectedHomeValue * newPropertyTaxRate;
     }
 
     // Calculate COL-adjusted spending impact
     const colDifference = destinationRule.col_multiplier - currentRule.col_multiplier;
-    const annualCOLSavings = annualSpending * -colDifference * 0.6; // 60% of spending is discretionary
+    const annualCOLSavings = annualSpending * -colDifference * 0.6; // 60% discretionary
     const lifetimeCOLSavings = annualCOLSavings * retirementYears;
 
-    // Calculate estate projections (simplified 5% growth)
-    const taxSavings = currentLifetimeTaxes - newLifetimeTaxes;
+    // Total savings calculation
+    const totalTaxCurrent = currentLifetimeIncomeTax + currentLifetimePropertyTax;
+    const totalTaxNew = newLifetimeIncomeTax + newLifetimePropertyTax;
+    const taxSavings = totalTaxCurrent - totalTaxNew;
     const totalSavings = taxSavings + lifetimeCOLSavings;
     
     const currentEstateAt100 = portfolioValue * Math.pow(1.05, yearsToSimulate) * 0.4 + homeEquity * Math.pow(1.03, yearsToSimulate);
@@ -124,30 +155,52 @@ export function RelocationExplorer({
 
     const legacyIncreasePercent = ((newEstateAt100 - currentEstateAt100) / currentEstateAt100) * 100;
 
+    // Annual trade-off metrics
+    const annualIncomeTaxSavings = firstYearCurrentIncomeTax - firstYearNewIncomeTax;
+    const annualPropertyTaxChange = firstYearNewPropertyTax - firstYearCurrentPropertyTax;
+    const netAnnualSavings = annualIncomeTaxSavings - annualPropertyTaxChange;
+
     return {
-      currentLifetimeTaxes,
-      newLifetimeTaxes,
+      currentLifetimeIncomeTax,
+      currentLifetimePropertyTax,
+      newLifetimeIncomeTax,
+      newLifetimePropertyTax,
       currentEstateAt100,
       newEstateAt100,
       lifetimeSpendingIncrease: totalSavings,
       legacyIncreasePercent,
+      annualIncomeTaxSavings,
+      annualPropertyTaxChange,
+      netAnnualSavings,
     };
-  }, [currentRule, destinationRule, currentAge, retirementAge, monthlySpending, portfolioValue, ssIncome, homeEquity]);
+  }, [currentRule, destinationRule, currentAge, retirementAge, monthlySpending, portfolioValue, ssIncome, homeEquity, homeValue]);
 
+  // Stacked bar chart data for total tax burden
   const chartData = useMemo(() => {
     if (!comparison || !currentRule || !destinationRule) return [];
     
     return [
       {
-        name: 'Lifetime Taxes',
-        current: comparison.currentLifetimeTaxes,
-        new: comparison.newLifetimeTaxes,
+        name: currentRule.state_name,
+        'Income Tax': comparison.currentLifetimeIncomeTax,
+        'Property Tax': comparison.currentLifetimePropertyTax,
+        total: comparison.currentLifetimeIncomeTax + comparison.currentLifetimePropertyTax,
       },
       {
-        name: 'Estate at 100',
-        current: comparison.currentEstateAt100,
-        new: comparison.newEstateAt100,
+        name: destinationRule.state_name,
+        'Income Tax': comparison.newLifetimeIncomeTax,
+        'Property Tax': comparison.newLifetimePropertyTax,
+        total: comparison.newLifetimeIncomeTax + comparison.newLifetimePropertyTax,
       },
+    ];
+  }, [comparison, currentRule, destinationRule]);
+
+  const estateChartData = useMemo(() => {
+    if (!comparison || !currentRule || !destinationRule) return [];
+    
+    return [
+      { name: currentRule.state_name, value: comparison.currentEstateAt100 },
+      { name: destinationRule.state_name, value: comparison.newEstateAt100 },
     ];
   }, [comparison, currentRule, destinationRule]);
 
@@ -177,9 +230,9 @@ export function RelocationExplorer({
             <MapPin className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <CardTitle>Relocation Savings Explorer</CardTitle>
+            <CardTitle>Total Tax Relocation Explorer</CardTitle>
             <CardDescription>
-              Compare lifetime tax and cost-of-living impact by state
+              Compare income tax, property tax, and cost-of-living impact by state
             </CardDescription>
           </div>
         </div>
@@ -216,13 +269,11 @@ export function RelocationExplorer({
                     <div className="flex items-center gap-2">
                       <span>{rule.state_name}</span>
                       <Badge variant="outline" className="text-xs">
-                        {rule.rate_type === 'none' ? 'No Tax' : `${rule.top_marginal_rate}%`}
+                        {rule.rate_type === 'none' ? 'No Inc Tax' : `${rule.top_marginal_rate}%`}
                       </Badge>
-                      {rule.col_multiplier < 0.95 && (
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                          Low COL
-                        </Badge>
-                      )}
+                      <Badge variant="outline" className="text-xs">
+                        Prop: {rule.property_tax_rate}%
+                      </Badge>
                     </div>
                   </SelectItem>
                 ))}
@@ -234,12 +285,16 @@ export function RelocationExplorer({
         {/* Destination State Details */}
         {destinationRule && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
               <div className="text-center">
-                <p className="text-xs text-muted-foreground">Tax Rate</p>
+                <p className="text-xs text-muted-foreground">Income Tax</p>
                 <p className="text-lg font-bold">
                   {destinationRule.rate_type === 'none' ? 'None' : `${destinationRule.top_marginal_rate}%`}
                 </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Property Tax</p>
+                <p className="text-lg font-bold">{destinationRule.property_tax_rate}%</p>
               </div>
               <div className="text-center">
                 <p className="text-xs text-muted-foreground">SS Taxed</p>
@@ -254,26 +309,98 @@ export function RelocationExplorer({
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-muted-foreground">Retirement Rating</p>
+                <p className="text-xs text-muted-foreground">Rating</p>
                 <Badge className={`${friendlinessColors[destinationRule.retirement_friendliness]} text-white`}>
                   {destinationRule.retirement_friendliness}
                 </Badge>
               </div>
             </div>
 
+            {/* Trade-off Alert */}
+            {comparison && (comparison.annualIncomeTaxSavings > 0 && comparison.annualPropertyTaxChange > 0) && (
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                <Scale className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-800 dark:text-amber-200">Tax Trade-off Analysis</AlertTitle>
+                <AlertDescription className="text-amber-700 dark:text-amber-300">
+                  Moving to {destinationRule.state_name} saves you{' '}
+                  <span className="font-bold text-green-600">{formatCurrency(comparison.annualIncomeTaxSavings)}</span> in Income Tax, 
+                  but increases your Property Tax by{' '}
+                  <span className="font-bold text-red-600">{formatCurrency(comparison.annualPropertyTaxChange)}</span>. 
+                  Your <span className="font-bold">net annual {comparison.netAnnualSavings >= 0 ? 'savings' : 'cost'}</span> is{' '}
+                  <span className={`font-bold ${comparison.netAnnualSavings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(Math.abs(comparison.netAnnualSavings))}
+                  </span>.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Warning for higher overall tax */}
+            {comparison && (comparison.newLifetimeIncomeTax + comparison.newLifetimePropertyTax > comparison.currentLifetimeIncomeTax + comparison.currentLifetimePropertyTax) && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Higher Total Tax Burden</AlertTitle>
+                <AlertDescription>
+                  Moving to {destinationRule.state_name} would increase your total tax burden by{' '}
+                  <span className="font-bold">
+                    {formatCurrency(
+                      (comparison.newLifetimeIncomeTax + comparison.newLifetimePropertyTax) - 
+                      (comparison.currentLifetimeIncomeTax + comparison.currentLifetimePropertyTax)
+                    )}
+                  </span>{' '}
+                  over your lifetime.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Separator />
 
-            {/* Comparison Chart */}
+            {/* Stacked Bar Chart - Total Tax Burden */}
             {comparison && (
               <div className="space-y-4">
                 <h4 className="font-semibold flex items-center gap-2">
                   <Calculator className="h-5 w-5 text-primary" />
-                  Side-by-Side Comparison
+                  Lifetime Total Tax Burden (Income + Property)
                 </h4>
                 
-                <div className="h-64">
+                <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        type="number" 
+                        tickFormatter={(value) => formatCurrency(value)}
+                      />
+                      <YAxis type="category" dataKey="name" width={100} />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey="Income Tax" 
+                        stackId="taxes" 
+                        fill="hsl(var(--primary))" 
+                        radius={[0, 0, 0, 0]} 
+                      />
+                      <Bar 
+                        dataKey="Property Tax" 
+                        stackId="taxes" 
+                        fill="hsl(var(--chart-2))" 
+                        radius={[0, 4, 4, 0]} 
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Estate at 100 comparison */}
+                <h4 className="font-semibold flex items-center gap-2 mt-6">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  Estate Value at Age 100
+                </h4>
+                
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={estateChartData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
                         type="number" 
@@ -284,9 +411,7 @@ export function RelocationExplorer({
                         formatter={(value: number) => formatCurrency(value)}
                         contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                       />
-                      <Legend />
-                      <Bar dataKey="current" name={currentRule?.state_name || 'Current'} fill="hsl(var(--muted-foreground))" radius={4} />
-                      <Bar dataKey="new" name={destinationRule.state_name} fill="hsl(var(--primary))" radius={4} />
+                      <Bar dataKey="value" fill="hsl(var(--chart-3))" radius={4} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -314,16 +439,28 @@ export function RelocationExplorer({
                           </span>.
                         </p>
                         
-                        <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                           <div className="p-3 bg-background rounded-lg">
-                            <p className="text-xs text-muted-foreground">Tax Savings</p>
-                            <p className={`text-xl font-bold ${comparison.currentLifetimeTaxes - comparison.newLifetimeTaxes >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatCurrency(comparison.currentLifetimeTaxes - comparison.newLifetimeTaxes)}
+                            <p className="text-xs text-muted-foreground">Income Tax Δ</p>
+                            <p className={`text-lg font-bold ${comparison.currentLifetimeIncomeTax - comparison.newLifetimeIncomeTax >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(comparison.currentLifetimeIncomeTax - comparison.newLifetimeIncomeTax)}
+                            </p>
+                          </div>
+                          <div className="p-3 bg-background rounded-lg">
+                            <p className="text-xs text-muted-foreground">Property Tax Δ</p>
+                            <p className={`text-lg font-bold ${comparison.currentLifetimePropertyTax - comparison.newLifetimePropertyTax >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(comparison.currentLifetimePropertyTax - comparison.newLifetimePropertyTax)}
+                            </p>
+                          </div>
+                          <div className="p-3 bg-background rounded-lg">
+                            <p className="text-xs text-muted-foreground">Net Tax Savings</p>
+                            <p className={`text-lg font-bold ${(comparison.currentLifetimeIncomeTax + comparison.currentLifetimePropertyTax) - (comparison.newLifetimeIncomeTax + comparison.newLifetimePropertyTax) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency((comparison.currentLifetimeIncomeTax + comparison.currentLifetimePropertyTax) - (comparison.newLifetimeIncomeTax + comparison.newLifetimePropertyTax))}
                             </p>
                           </div>
                           <div className="p-3 bg-background rounded-lg">
                             <p className="text-xs text-muted-foreground">Estate Increase</p>
-                            <p className={`text-xl font-bold ${comparison.newEstateAt100 - comparison.currentEstateAt100 >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-lg font-bold ${comparison.newEstateAt100 - comparison.currentEstateAt100 >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {formatCurrency(comparison.newEstateAt100 - comparison.currentEstateAt100)}
                             </p>
                           </div>
@@ -349,7 +486,7 @@ export function RelocationExplorer({
         {!destinationState && (
           <div className="text-center py-8 text-muted-foreground">
             <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Select a destination state to compare tax and cost-of-living impact</p>
+            <p>Select a destination state to compare total tax burden and cost-of-living impact</p>
           </div>
         )}
       </CardContent>
