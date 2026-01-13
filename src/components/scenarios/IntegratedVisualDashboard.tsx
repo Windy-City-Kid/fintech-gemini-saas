@@ -232,12 +232,12 @@ export function IntegratedVisualDashboard({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Destination State</Label>
-              <Select value={destinationState || ''} onValueChange={onDestinationStateChange}>
+              <Select value={destinationState || '__none__'} onValueChange={(val) => onDestinationStateChange(val === '__none__' ? '' : val)}>
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue placeholder="Select state..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No relocation</SelectItem>
+                  <SelectItem value="__none__">No relocation</SelectItem>
                   {stateOptions.map((state) => (
                     <SelectItem key={state.code} value={state.code}>
                       {state.name}
