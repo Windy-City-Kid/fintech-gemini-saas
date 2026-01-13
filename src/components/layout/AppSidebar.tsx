@@ -1,7 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  Wallet, 
   TrendingUp, 
   Settings, 
   LogOut, 
@@ -17,10 +16,12 @@ import {
   ArrowLeftRight, 
   Users,
   ChevronDown,
-  FileText
+  FileText,
+  CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
+import { usePlanCompletion } from '@/hooks/usePlanCompletion';
 import { cn } from '@/lib/utils';
 import {
   Collapsible,
@@ -30,16 +31,16 @@ import {
 import { useState } from 'react';
 
 const myPlanItems = [
-  { title: 'Summary', path: '/summary', icon: LayoutDashboard },
-  { title: 'Connections', path: '/connections', icon: Link2 },
-  { title: 'Accounts & Assets', path: '/accounts', icon: PiggyBank },
-  { title: 'Home and Real Estate', path: '/real-estate', icon: Home },
-  { title: 'Debts', path: '/debts', icon: CreditCard },
-  { title: 'Income', path: '/income', icon: Banknote },
-  { title: 'Expenses and Healthcare', path: '/expenses', icon: Heart },
-  { title: 'Money Flows', path: '/money-flows', icon: ArrowLeftRight },
-  { title: 'Estate Planning', path: '/estate-planning', icon: Users },
-  { title: 'Rate Assumptions', path: '/rate-assumptions', icon: Percent },
+  { title: 'Summary', path: '/summary', icon: LayoutDashboard, completionKey: 'summary' as const },
+  { title: 'Connections', path: '/connections', icon: Link2, completionKey: 'connections' as const },
+  { title: 'Accounts & Assets', path: '/accounts', icon: PiggyBank, completionKey: 'accounts' as const },
+  { title: 'Home and Real Estate', path: '/real-estate', icon: Home, completionKey: 'realEstate' as const },
+  { title: 'Debts', path: '/debts', icon: CreditCard, completionKey: 'debts' as const },
+  { title: 'Income', path: '/income', icon: Banknote, completionKey: 'income' as const },
+  { title: 'Expenses and Healthcare', path: '/expenses', icon: Heart, completionKey: 'expenses' as const },
+  { title: 'Money Flows', path: '/money-flows', icon: ArrowLeftRight, completionKey: 'moneyFlows' as const },
+  { title: 'Estate Planning', path: '/estate-planning', icon: Users, completionKey: 'estatePlanning' as const },
+  { title: 'Rate Assumptions', path: '/rate-assumptions', icon: Percent, completionKey: 'rateAssumptions' as const },
 ];
 
 const otherItems = [
@@ -51,6 +52,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { isPro, isLoading, startCheckout } = useSubscription();
+  const { completion, completedCount, totalCount } = usePlanCompletion();
   const [myPlanOpen, setMyPlanOpen] = useState(true);
 
   const isMyPlanActive = myPlanItems.some(item => location.pathname === item.path);
@@ -93,6 +95,9 @@ export function AppSidebar() {
             <div className="flex items-center gap-3">
               <LayoutDashboard className="h-5 w-5" />
               <span>My Plan</span>
+              <span className="text-xs text-muted-foreground ml-1">
+                ({completedCount}/{totalCount})
+              </span>
             </div>
             <ChevronDown className={cn(
               'h-4 w-4 transition-transform',
@@ -102,17 +107,23 @@ export function AppSidebar() {
           <CollapsibleContent className="pl-4 mt-1 space-y-0.5">
             {myPlanItems.map((item) => {
               const isActive = location.pathname === item.path;
+              const isComplete = completion[item.completionKey];
               return (
                 <NavLink
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    'sidebar-item text-sm py-2',
+                    'sidebar-item text-sm py-2 justify-between',
                     isActive && 'active'
                   )}
                 >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.title}</span>
+                  <div className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                  </div>
+                  {isComplete && (
+                    <CheckCircle2 className="h-4 w-4 text-chart-2 flex-shrink-0" />
+                  )}
                 </NavLink>
               );
             })}
