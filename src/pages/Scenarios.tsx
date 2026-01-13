@@ -23,6 +23,7 @@ import { ExportReportButton } from '@/components/scenarios/ExportReportButton';
 import { MoneyFlowsTile } from '@/components/scenarios/MoneyFlowsTile';
 import { MoneyFlowsDialog } from '@/components/scenarios/MoneyFlowsDialog';
 import { PropertySummaryCard } from '@/components/scenarios/PropertySummaryCard';
+import { HomeEquityChart } from '@/components/scenarios/HomeEquityChart';
 import { usePortfolioData } from '@/hooks/usePortfolioData';
 import { useProperties } from '@/hooks/useProperties';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_COLORS } from '@/lib/correlationMatrix';
@@ -364,6 +365,15 @@ export default function Scenarios() {
           totalEquity={totalEquity}
           yearsToRetirement={yearsToRetirement}
         />
+
+        {/* Home Equity Projection Chart */}
+        <div className="lg:col-span-2">
+          <HomeEquityChart
+            property={primaryResidence}
+            currentAge={formValues.current_age}
+            retirementAge={formValues.retirement_age}
+          />
+        </div>
 
         {/* Assumptions Form */}
         <div className="stat-card">
