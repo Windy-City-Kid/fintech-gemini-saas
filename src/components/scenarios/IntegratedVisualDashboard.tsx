@@ -10,6 +10,7 @@ import { GaugeChart } from '@/components/charts/GaugeChart';
 import { ExpenseProjectionChart } from './ExpenseProjectionChart';
 import { SavingsProjectionChart } from './SavingsProjectionChart';
 import { CashFlowSankey } from './CashFlowSankey';
+import { TaxWaterfallChart } from './TaxWaterfallChart';
 
 interface IntegratedVisualDashboardProps {
   // Form values (controlled)
@@ -36,6 +37,8 @@ interface IntegratedVisualDashboardProps {
   // Property data
   homeValue?: number;
   propertyTaxRate?: number;
+  currentPropertyTaxRate?: number;
+  destinationPropertyTaxRate?: number;
   
   // State options
   stateOptions: Array<{ code: string; name: string }>;
@@ -65,6 +68,8 @@ export function IntegratedVisualDashboard({
   simulationMedian,
   homeValue = 500000,
   propertyTaxRate = 1.1,
+  currentPropertyTaxRate = 1.1,
+  destinationPropertyTaxRate,
   stateOptions,
   onInflationChange,
   onMedicalInflationChange,
@@ -73,8 +78,8 @@ export function IntegratedVisualDashboard({
   onRunSimulation,
   isSimulating = false,
 }: IntegratedVisualDashboardProps) {
-  // Calculate cash flow data for Sankey
-  const cashFlowData = useMemo(() => {
+  // Calculate cash flow and tax data
+  const { cashFlowData, taxData } = useMemo(() => {
     const annualSpending = monthlySpending * 12;
     const isRetired = currentAge >= retirementAge;
     
@@ -83,10 +88,26 @@ export function IntegratedVisualDashboard({
     const ssIncome = isRetired ? socialSecurityIncome : 0;
     const investmentIncome = isRetired ? annualSpending * 0.4 : currentSavings * (expectedReturn / 100) * 0.3;
     
-    // Estimated taxes (simplified)
-    const federalTax = grossIncome * 0.15;
-    const stateTax = grossIncome * 0.05;
-    const medicarePremium = isRetired ? 4800 : 0;
+    // Tax calculations - current state
+    const federalTax = grossIncome * 0.15; // Simplified federal rate
+    const currentStateTaxRate = 0.05; // Placeholder, would come from state rules
+    const currentStateTaxAmount = grossIncome * currentStateTaxRate;
+    const currentFICA = isRetired ? 0 : grossIncome * 0.062;
+    const currentMedicare = isRetired ? 4800 : grossIncome * 0.0145;
+    const currentPropTax = (homeValue * (currentPropertyTaxRate / 100));
+    
+    // Destination state taxes (if selected)
+    const destinationStateTaxRate = destinationState ? 0.03 : undefined; // Would come from state rules
+    const destinationStateTaxAmount = destinationState ? grossIncome * (destinationStateTaxRate || 0) : undefined;
+    const destinationPropTax = destinationState && destinationPropertyTaxRate 
+      ? (homeValue * (destinationPropertyTaxRate / 100))
+      : undefined;
+    
+    // Get state names
+    const currentStateName = stateOptions.find(s => s.code === currentState)?.name || currentState;
+    const destinationStateName = destinationState 
+      ? stateOptions.find(s => s.code === destinationState)?.name || destinationState 
+      : undefined;
     
     // Expenses
     const housing = annualSpending * 0.30;
@@ -96,20 +117,42 @@ export function IntegratedVisualDashboard({
     const savings = isRetired ? 0 : annualContribution;
     
     return {
-      grossIncome,
-      socialSecurityIncome: ssIncome,
-      investmentIncome,
-      pensionIncome: 0,
-      federalTax,
-      stateTax,
-      medicarePremium,
-      housingExpense: housing,
-      medicalExpense: medical,
-      livingExpense: living,
-      discretionaryExpense: discretionary,
-      savingsContribution: savings,
+      cashFlowData: {
+        grossIncome,
+        socialSecurityIncome: ssIncome,
+        investmentIncome,
+        pensionIncome: 0,
+        federalTax,
+        stateTax: currentStateTaxAmount,
+        medicarePremium: currentMedicare,
+        housingExpense: housing,
+        medicalExpense: medical,
+        livingExpense: living,
+        discretionaryExpense: discretionary,
+        savingsContribution: savings,
+      },
+      taxData: {
+        grossIncome,
+        currentFederalTax: federalTax,
+        currentStateTax: currentStateTaxAmount,
+        currentFICA,
+        currentMedicare,
+        currentPropertyTax: currentPropTax,
+        currentStateName,
+        destinationFederalTax: federalTax, // Federal stays same
+        destinationStateTax: destinationStateTaxAmount,
+        destinationFICA: currentFICA, // FICA stays same
+        destinationMedicare: currentMedicare, // Medicare stays same
+        destinationPropertyTax: destinationPropTax,
+        destinationStateName,
+        isRetired,
+      },
     };
-  }, [currentAge, retirementAge, monthlySpending, annualContribution, currentSavings, socialSecurityIncome, expectedReturn]);
+  }, [
+    currentAge, retirementAge, monthlySpending, annualContribution, currentSavings, 
+    socialSecurityIncome, expectedReturn, homeValue, currentPropertyTaxRate, 
+    destinationPropertyTaxRate, currentState, destinationState, stateOptions
+  ]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -259,6 +302,25 @@ export function IntegratedVisualDashboard({
             simulationMedian={simulationMedian}
           />
         </div>
+
+        {/* Tax Waterfall - Before/After Comparison */}
+        <TaxWaterfallChart
+          grossIncome={taxData.grossIncome}
+          currentFederalTax={taxData.currentFederalTax}
+          currentStateTax={taxData.currentStateTax}
+          currentFICA={taxData.currentFICA}
+          currentMedicare={taxData.currentMedicare}
+          currentPropertyTax={taxData.currentPropertyTax}
+          currentStateName={taxData.currentStateName}
+          destinationFederalTax={taxData.destinationFederalTax}
+          destinationStateTax={taxData.destinationStateTax}
+          destinationFICA={taxData.destinationFICA}
+          destinationMedicare={taxData.destinationMedicare}
+          destinationPropertyTax={taxData.destinationPropertyTax}
+          destinationStateName={taxData.destinationStateName}
+          showComparison={!!destinationState}
+          isRetired={taxData.isRetired}
+        />
 
         {/* Bottom: Sankey Cash Flow */}
         <CashFlowSankey {...cashFlowData} />
