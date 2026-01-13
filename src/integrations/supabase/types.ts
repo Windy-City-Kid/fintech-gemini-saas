@@ -176,6 +176,60 @@ export type Database = {
         }
         Relationships: []
       }
+      guardrail_snapshots: {
+        Row: {
+          adjusted_spending_monthly: number
+          adjustment_amount: number
+          created_at: string
+          current_withdrawal_rate: number
+          id: string
+          initial_portfolio_value: number
+          initial_withdrawal_rate: number
+          lower_guardrail: number
+          monthly_spending: number
+          portfolio_value: number
+          safe_spending_monthly: number
+          triggered_by: string
+          upper_guardrail: number
+          user_id: string
+          zone: string
+        }
+        Insert: {
+          adjusted_spending_monthly: number
+          adjustment_amount: number
+          created_at?: string
+          current_withdrawal_rate: number
+          id?: string
+          initial_portfolio_value: number
+          initial_withdrawal_rate: number
+          lower_guardrail: number
+          monthly_spending: number
+          portfolio_value: number
+          safe_spending_monthly: number
+          triggered_by?: string
+          upper_guardrail: number
+          user_id: string
+          zone: string
+        }
+        Update: {
+          adjusted_spending_monthly?: number
+          adjustment_amount?: number
+          created_at?: string
+          current_withdrawal_rate?: number
+          id?: string
+          initial_portfolio_value?: number
+          initial_withdrawal_rate?: number
+          lower_guardrail?: number
+          monthly_spending?: number
+          portfolio_value?: number
+          safe_spending_monthly?: number
+          triggered_by?: string
+          upper_guardrail?: number
+          user_id?: string
+          zone?: string
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           account_id: string
