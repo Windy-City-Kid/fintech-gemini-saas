@@ -34,6 +34,8 @@ export interface PlanContext {
   currentState: string;
   annualStateTax: number;
   annualFederalTax: number;
+  healthCondition?: string;
+  medicareChoice?: string;
   isMarried: boolean;
   spouseAge?: number;
   legacyGoal: number;
@@ -131,6 +133,8 @@ export function usePlanContext() {
         currentState: 'CA', // Default - could be enhanced with location data
         annualStateTax: stateTax,
         annualFederalTax: federalTax,
+        healthCondition: profile?.health_condition || 'good',
+        medicareChoice: profile?.medicare_choice || 'Original Medicare',
         isMarried: scenario?.is_married || false,
         spouseAge: scenario?.spouse_current_age || undefined,
         legacyGoal: profile?.legacy_goal_amount || 500000,
