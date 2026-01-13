@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ChartHoverProvider } from "@/contexts/ChartHoverContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Auth from "./pages/Auth";
+import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Summary from "./pages/Summary";
 import Connections from "./pages/Connections";
@@ -36,6 +37,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/summary" element={<ProtectedRoute><Summary /></ProtectedRoute>} />
             <Route path="/connections" element={<ProtectedRoute><Connections /></ProtectedRoute>} />

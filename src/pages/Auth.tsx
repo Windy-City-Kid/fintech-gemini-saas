@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const authSchema = z.object({
@@ -30,7 +31,22 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/');
+      // Check if user has completed onboarding by checking for an active scenario
+      const checkOnboarding = async () => {
+        const { data: scenarios } = await supabase
+          .from('scenarios')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(1);
+        
+        if (scenarios && scenarios.length > 0) {
+          navigate('/');
+        } else {
+          navigate('/onboarding');
+        }
+      };
+      checkOnboarding();
     }
   }, [user, navigate]);
 
