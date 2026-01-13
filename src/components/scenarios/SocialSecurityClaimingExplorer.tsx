@@ -52,6 +52,8 @@ import {
   StrategyComparisonResult,
 } from '@/lib/socialSecurityOptimizer';
 import { SSStrategyComparisonChart } from './SSStrategyComparisonChart';
+import { SpousalBenefitOptimizer } from './SpousalBenefitOptimizer';
+import { StateTaxComparisonMatrix } from './StateTaxComparisonMatrix';
 import { useStateTaxRules, StateTaxRule } from '@/hooks/useStateTaxRules';
 
 interface SocialSecurityClaimingExplorerProps {
@@ -408,6 +410,12 @@ export function SocialSecurityClaimingExplorer({
             </CardContent>
           </Card>
 
+          {/* Spousal Benefit Optimizer */}
+          <SpousalBenefitOptimizer
+            params={paramsWithState}
+            onApplyStrategy={(primary, spouse) => handleClaimingAgeChange(primary, spouse)}
+          />
+
           {/* State Tax Integration */}
           <Card>
             <CardHeader className="pb-3">
@@ -654,6 +662,13 @@ export function SocialSecurityClaimingExplorer({
               </div>
             </CardContent>
           </Card>
+
+          {/* State Tax Comparison Matrix */}
+          <StateTaxComparisonMatrix
+            annualSSBenefit={customStrategy.annualBenefitAtClaim}
+            currentStateCode={selectedState}
+            colaRate={params.colaRate}
+          />
         </div>
       </div>
     </div>

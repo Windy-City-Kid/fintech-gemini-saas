@@ -116,7 +116,7 @@ export function WealthTransferSankey({ projection, stepUpBasis }: WealthTransfer
               data={data}
               margin={{ top: 20, right: 160, bottom: 20, left: 20 }}
               align="justify"
-              colors={['hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))', 'hsl(var(--chart-2))']}}
+              colors={['hsl(210 60% 50%)', 'hsl(0 70% 50%)', 'hsl(35 85% 55%)', 'hsl(280 65% 55%)', 'hsl(140 65% 45%)']}
               nodeOpacity={1}
               nodeHoverOthersOpacity={0.35}
               nodeThickness={18}
@@ -130,7 +130,7 @@ export function WealthTransferSankey({ projection, stepUpBasis }: WealthTransfer
               labelPosition="outside"
               labelOrientation="horizontal"
               labelPadding={16}
-              labelTextColor="hsl(var(--foreground))"
+              labelTextColor="#888888"
               nodeTooltip={({ node }) => (
                 <div className="bg-popover text-popover-foreground p-3 rounded-lg shadow-lg border border-border">
                   <p className="font-semibold">{node.label}</p>

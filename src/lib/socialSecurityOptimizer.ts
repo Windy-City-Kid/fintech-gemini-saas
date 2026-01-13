@@ -395,6 +395,96 @@ export function compareHouseholdStrategies(
 }
 
 /**
+ * Optimize claiming strategy for married couples
+ * Iterates through all combinations to find the one maximizing survivor benefits + cumulative income
+ */
+export function optimizeForCouple(
+  params: HouseholdSSParams
+): {
+  bestStrategy: ClaimingStrategy;
+  explanation: string;
+  allStrategies: ClaimingStrategy[];
+  stats: {
+    totalCombinations: number;
+    bestSurvivorBenefit: number;
+    bestCumulativeIncome: number;
+  };
+} {
+  if (!params.isMarried) {
+    const best = calculateClaimingStrategy(params, 70, 70, 'Delay to 70', 'Maximum lifetime benefits');
+    return {
+      bestStrategy: best,
+      explanation: 'As a single filer, delaying to 70 maximizes your lifetime benefits.',
+      allStrategies: [best],
+      stats: { totalCombinations: 1, bestSurvivorBenefit: 0, bestCumulativeIncome: best.lifetimeBenefits },
+    };
+  }
+
+  const claimingAges = [62, 63, 64, 65, 66, 67, 68, 69, 70];
+  const strategies: ClaimingStrategy[] = [];
+  
+  // Test all combinations
+  for (const primaryAge of claimingAges) {
+    for (const spouseAge of claimingAges) {
+      const strategy = calculateClaimingStrategy(
+        params,
+        primaryAge,
+        spouseAge,
+        `${primaryAge}/${spouseAge}`,
+        `Primary at ${primaryAge}, Spouse at ${spouseAge}`
+      );
+      strategies.push(strategy);
+    }
+  }
+
+  // Score each strategy: weight survivor benefit and cumulative income
+  const scored = strategies.map(s => {
+    // Find max survivor benefit in the projection
+    const survivorYears = s.benefitsByAge.filter(y => y.isSurvivorActive);
+    const survivorTotal = survivorYears.reduce((sum, y) => sum + y.totalBenefit, 0);
+    
+    // Combined score: 60% lifetime, 40% survivor
+    const score = s.lifetimeBenefits * 0.6 + survivorTotal * 0.4;
+    
+    return { strategy: s, survivorTotal, score };
+  });
+
+  // Find the best
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  
+  // Generate explanation
+  const primaryIsHigher = params.primaryPIA >= params.spousePIA;
+  const higherLabel = primaryIsHigher ? 'You (higher earner)' : 'Your spouse (higher earner)';
+  const lowerLabel = primaryIsHigher ? 'Your spouse (lower earner)' : 'You (lower earner)';
+  
+  let explanation = '';
+  const bestPrimary = best.strategy.primaryClaimingAge;
+  const bestSpouse = best.strategy.spouseClaimingAge;
+  
+  if (primaryIsHigher && bestPrimary >= 68 && bestSpouse <= 64) {
+    explanation = `${higherLabel} delays to ${bestPrimary} to maximize survivor protection, while ${lowerLabel} claims at ${bestSpouse} for early cash flow.`;
+  } else if (!primaryIsHigher && bestSpouse >= 68 && bestPrimary <= 64) {
+    explanation = `${higherLabel} delays to ${bestSpouse} to maximize survivor protection, while ${lowerLabel} claims at ${bestPrimary} for early cash flow.`;
+  } else if (bestPrimary === bestSpouse) {
+    explanation = `Both claim at age ${bestPrimary} - this balances cash flow timing with lifetime benefits.`;
+  } else {
+    explanation = `Optimal strategy: You claim at ${bestPrimary}, spouse claims at ${bestSpouse}. This maximizes combined household income over your lifetimes.`;
+  }
+
+  return {
+    bestStrategy: best.strategy,
+    explanation,
+    allStrategies: strategies,
+    stats: {
+      totalCombinations: strategies.length,
+      bestSurvivorBenefit: best.survivorTotal,
+      bestCumulativeIncome: best.strategy.lifetimeBenefits,
+    },
+  };
+}
+
+/**
  * Calculate custom strategy for user-selected claiming ages
  */
 export function calculateCustomStrategy(
@@ -417,7 +507,7 @@ export function calculateCustomStrategy(
 export function getStateTaxImpactComparison(
   ssBenefit: number,
   stateRules: StateTaxRule[]
-): Array<{ state: string; afterTaxBenefit: number; taxAmount: number }> {
+): Array<{ state: string; stateCode: string; afterTaxBenefit: number; taxAmount: number; ssTaxable: boolean }> {
   return stateRules.map(rule => {
     const afterTax = calculateAfterTaxSSBenefit(
       ssBenefit,
@@ -429,8 +519,58 @@ export function getStateTaxImpactComparison(
     );
     return {
       state: rule.state_name,
+      stateCode: rule.state_code,
       afterTaxBenefit: afterTax,
       taxAmount: ssBenefit - afterTax,
+      ssTaxable: rule.social_security_taxable,
     };
   }).sort((a, b) => b.afterTaxBenefit - a.afterTaxBenefit);
+}
+
+/**
+ * Calculate 30-year tax leakage comparison for state relocation
+ */
+export function calculate30YearTaxLeakage(
+  annualSSBenefit: number,
+  stateRules: StateTaxRule[],
+  colaRate: number = 0.0254
+): Array<{
+  state: string;
+  stateCode: string;
+  totalTaxLeakage: number;
+  annualAverage: number;
+  ssTaxable: boolean;
+  savingsVsWorst: number;
+}> {
+  const results = stateRules.map(rule => {
+    let totalLeakage = 0;
+    let benefit = annualSSBenefit;
+    
+    for (let year = 0; year < 30; year++) {
+      if (rule.social_security_taxable) {
+        const threshold = rule.ss_exemption_threshold_joint || 0;
+        const taxableAmount = Math.max(0, benefit - threshold);
+        const stateTax = taxableAmount * (rule.base_rate / 100);
+        totalLeakage += stateTax;
+      }
+      benefit *= (1 + colaRate);
+    }
+    
+    return {
+      state: rule.state_name,
+      stateCode: rule.state_code,
+      totalTaxLeakage: totalLeakage,
+      annualAverage: totalLeakage / 30,
+      ssTaxable: rule.social_security_taxable,
+      savingsVsWorst: 0, // Calculated after
+    };
+  });
+
+  // Find max leakage to calculate savings
+  const maxLeakage = Math.max(...results.map(r => r.totalTaxLeakage));
+  results.forEach(r => {
+    r.savingsVsWorst = maxLeakage - r.totalTaxLeakage;
+  });
+
+  return results.sort((a, b) => a.totalTaxLeakage - b.totalTaxLeakage);
 }
