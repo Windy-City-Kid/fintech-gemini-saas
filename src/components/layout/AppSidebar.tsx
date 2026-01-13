@@ -1,15 +1,49 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, TrendingUp, Settings, LogOut, Shield, Zap, Percent, Home } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Wallet, 
+  TrendingUp, 
+  Settings, 
+  LogOut, 
+  Shield, 
+  Zap, 
+  Percent, 
+  Home, 
+  Link2, 
+  PiggyBank, 
+  CreditCard, 
+  Banknote, 
+  Heart, 
+  ArrowLeftRight, 
+  Users,
+  ChevronDown,
+  FileText
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/useSubscription';
 import { cn } from '@/lib/utils';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { useState } from 'react';
 
-const navItems = [
-  { title: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { title: 'Net Worth', path: '/net-worth', icon: Wallet },
-  { title: 'Home & Real Estate', path: '/real-estate', icon: Home },
-  { title: 'Retirement Scenarios', path: '/scenarios', icon: TrendingUp },
+const myPlanItems = [
+  { title: 'Summary', path: '/summary', icon: LayoutDashboard },
+  { title: 'Connections', path: '/connections', icon: Link2 },
+  { title: 'Accounts & Assets', path: '/accounts', icon: PiggyBank },
+  { title: 'Home and Real Estate', path: '/real-estate', icon: Home },
+  { title: 'Debts', path: '/debts', icon: CreditCard },
+  { title: 'Income', path: '/income', icon: Banknote },
+  { title: 'Expenses and Healthcare', path: '/expenses', icon: Heart },
+  { title: 'Money Flows', path: '/money-flows', icon: ArrowLeftRight },
+  { title: 'Estate Planning', path: '/estate-planning', icon: Users },
   { title: 'Rate Assumptions', path: '/rate-assumptions', icon: Percent },
+];
+
+const otherItems = [
+  { title: 'Retirement Scenarios', path: '/scenarios', icon: TrendingUp },
   { title: 'Settings', path: '/settings', icon: Settings },
 ];
 
@@ -17,9 +51,12 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { isPro, isLoading, startCheckout } = useSubscription();
+  const [myPlanOpen, setMyPlanOpen] = useState(true);
+
+  const isMyPlanActive = myPlanItems.some(item => location.pathname === item.path);
 
   return (
-    <aside className="fixed left-0 top-8 bottom-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
+    <aside className="fixed left-0 top-8 bottom-0 w-64 bg-sidebar border-r border-sidebar-border flex flex-col overflow-y-auto">
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
@@ -35,22 +72,72 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'sidebar-item',
-                isActive && 'active'
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              <span>{item.title}</span>
-            </NavLink>
-          );
-        })}
+        {/* Dashboard Link */}
+        <NavLink
+          to="/"
+          className={cn(
+            'sidebar-item',
+            location.pathname === '/' && 'active'
+          )}
+        >
+          <FileText className="h-5 w-5" />
+          <span>Dashboard</span>
+        </NavLink>
+
+        {/* My Plan Collapsible Section */}
+        <Collapsible open={myPlanOpen} onOpenChange={setMyPlanOpen}>
+          <CollapsibleTrigger className={cn(
+            'sidebar-item w-full justify-between',
+            isMyPlanActive && 'text-primary'
+          )}>
+            <div className="flex items-center gap-3">
+              <LayoutDashboard className="h-5 w-5" />
+              <span>My Plan</span>
+            </div>
+            <ChevronDown className={cn(
+              'h-4 w-4 transition-transform',
+              myPlanOpen && 'rotate-180'
+            )} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pl-4 mt-1 space-y-0.5">
+            {myPlanItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    'sidebar-item text-sm py-2',
+                    isActive && 'active'
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </NavLink>
+              );
+            })}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Other Navigation Items */}
+        <div className="pt-2 border-t border-sidebar-border mt-2">
+          {otherItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  'sidebar-item',
+                  isActive && 'active'
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.title}</span>
+              </NavLink>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Upgrade banner for free users */}
