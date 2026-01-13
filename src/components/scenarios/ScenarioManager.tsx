@@ -75,7 +75,8 @@ export function ScenarioManager({
     if (!newScenarioName.trim()) return;
     
     setCreating(true);
-    await onCreateScenario(newScenarioName, copyFromId || undefined);
+    const copyId = copyFromId === '__none__' ? undefined : copyFromId;
+    await onCreateScenario(newScenarioName, copyId || undefined);
     setCreating(false);
     setCreateDialogOpen(false);
     setNewScenarioName('');
@@ -138,7 +139,7 @@ export function ScenarioManager({
                     <SelectValue placeholder="Start fresh (empty)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Start fresh</SelectItem>
+                    <SelectItem value="__none__">Start fresh</SelectItem>
                     {scenarios.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.scenario_name} {s.is_baseline && '(Baseline)'}
