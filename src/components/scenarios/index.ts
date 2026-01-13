@@ -3,6 +3,8 @@ export { MonteCarloChart } from './MonteCarloChart';
 export { SimulationStats } from './SimulationStats';
 export { GuardrailChart } from './GuardrailChart';
 export { ResilienceMeter } from './ResilienceMeter';
+export { SafeSpendingDashboard } from './SafeSpendingDashboard';
+export { SpendingSpeedometer } from './SpendingSpeedometer';
 export { ExportReportButton } from './ExportReportButton';
 export { ProfessionalReportButton } from './ProfessionalReportButton';
 export { MoneyFlowsTile } from './MoneyFlowsTile';
