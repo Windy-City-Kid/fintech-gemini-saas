@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.process-dead-letter-queue]
 verify_jwt = false
+
+[functions.ai-advisor]
+verify_jwt = false

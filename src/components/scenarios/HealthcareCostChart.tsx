@@ -20,8 +20,9 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { DataTableDialog } from '@/components/charts/DataTableDialog';
 import {
   HealthcareProjectionPoint,
@@ -29,6 +30,7 @@ import {
   HealthCondition,
   MedicareChoice,
 } from '@/lib/medicareCalculator';
+import { useAIAdvisorContext } from '@/contexts/AIAdvisorContext';
 
 interface HealthcareCostChartProps {
   currentAge: number;
@@ -150,6 +152,14 @@ export function HealthcareCostChart({
 }: HealthcareCostChartProps) {
   const [selectedPoint, setSelectedPoint] = useState<HealthcareProjectionPoint | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // AI Advisor context for "Ask AI" functionality
+  let aiAdvisorContext: ReturnType<typeof useAIAdvisorContext> | null = null;
+  try {
+    aiAdvisorContext = useAIAdvisorContext();
+  } catch {
+    // Context not available (component used outside DashboardLayout)
+  }
 
   const projections = useMemo(() => {
     return generateHealthcareProjection(
@@ -251,7 +261,7 @@ export function HealthcareCostChart({
 
   return (
     <div className="space-y-4">
-      {/* Summary Stats */}
+      {/* Summary Stats with Ask AI Button */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="text-center p-3 bg-muted/30 rounded-lg">
@@ -278,12 +288,38 @@ export function HealthcareCostChart({
               {formatCurrency(stats.eolCosts)}
             </p>
           </div>
-          <div className="text-center p-3 bg-muted/30 rounded-lg">
+          <div className="text-center p-3 bg-muted/30 rounded-lg relative">
             <p className="text-xs text-muted-foreground">Total IRMAA</p>
             <p className="text-lg font-bold font-mono text-amber-600">
               {formatCurrency(stats.totalIRMAA)}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Ask AI Button */}
+      {aiAdvisorContext && stats && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => aiAdvisorContext?.openWithChartContext({
+              chartTitle: 'Healthcare Cost Projection',
+              chartType: 'stacked-area',
+              chartData: {
+                lifetimeTotal: stats.totalLifetime,
+                avgAnnual: stats.avgAnnual,
+                peakYear: stats.maxAnnual,
+                eolCosts: stats.eolCosts,
+                totalIRMAA: stats.totalIRMAA,
+                yearsProjected: projections.length,
+              },
+            })}
+            className="gap-1"
+          >
+            <Sparkles className="h-4 w-4" />
+            Ask AI about this chart
+          </Button>
         </div>
       )}
 
