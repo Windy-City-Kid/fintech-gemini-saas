@@ -98,6 +98,66 @@ export type Database = {
         }
         Relationships: []
       }
+      bucket_settings: {
+        Row: {
+          bucket1_current_value: number
+          bucket1_target_years: number
+          bucket2_current_value: number
+          bucket2_target_years: number
+          bucket2_ytd_return: number
+          bucket3_current_value: number
+          bucket3_target_years: number
+          bucket3_ytd_return: number
+          created_at: string
+          id: string
+          last_refill_amount: number | null
+          last_refill_date: string | null
+          last_refill_source: string | null
+          refill_enabled: boolean
+          refill_threshold_percentage: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bucket1_current_value?: number
+          bucket1_target_years?: number
+          bucket2_current_value?: number
+          bucket2_target_years?: number
+          bucket2_ytd_return?: number
+          bucket3_current_value?: number
+          bucket3_target_years?: number
+          bucket3_ytd_return?: number
+          created_at?: string
+          id?: string
+          last_refill_amount?: number | null
+          last_refill_date?: string | null
+          last_refill_source?: string | null
+          refill_enabled?: boolean
+          refill_threshold_percentage?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bucket1_current_value?: number
+          bucket1_target_years?: number
+          bucket2_current_value?: number
+          bucket2_target_years?: number
+          bucket2_ytd_return?: number
+          bucket3_current_value?: number
+          bucket3_target_years?: number
+          bucket3_ytd_return?: number
+          created_at?: string
+          id?: string
+          last_refill_amount?: number | null
+          last_refill_date?: string | null
+          last_refill_source?: string | null
+          refill_enabled?: boolean
+          refill_threshold_percentage?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       charitable_bequests: {
         Row: {
           amount: number
@@ -696,6 +756,42 @@ export type Database = {
           user_id?: string
           user_optimistic?: number
           user_pessimistic?: number
+        }
+        Relationships: []
+      }
+      refill_history: {
+        Row: {
+          amount: number
+          bucket1_balance_after: number
+          condition_triggered: string
+          created_at: string
+          id: string
+          refill_date: string
+          source_bucket: string
+          source_return_at_refill: number
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          bucket1_balance_after?: number
+          condition_triggered: string
+          created_at?: string
+          id?: string
+          refill_date?: string
+          source_bucket: string
+          source_return_at_refill?: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          bucket1_balance_after?: number
+          condition_triggered?: string
+          created_at?: string
+          id?: string
+          refill_date?: string
+          source_bucket?: string
+          source_return_at_refill?: number
+          user_id?: string
         }
         Relationships: []
       }
