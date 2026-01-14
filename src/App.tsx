@@ -18,6 +18,7 @@ import Debts from "./pages/Debts";
 import Income from "./pages/Income";
 import Expenses from "./pages/Expenses";
 import MoneyFlows from "./pages/MoneyFlows";
+import Buckets from "./pages/Buckets";
 import EstatePlanning from "./pages/EstatePlanning";
 import Scenarios from "./pages/Scenarios";
 import RateAssumptions from "./pages/RateAssumptions";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
             <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
             <Route path="/money-flows" element={<ProtectedRoute><MoneyFlows /></ProtectedRoute>} />
+            <Route path="/buckets" element={<ProtectedRoute><Buckets /></ProtectedRoute>} />
             <Route path="/estate-planning" element={<ProtectedRoute><EstatePlanning /></ProtectedRoute>} />
             <Route path="/scenarios" element={<ProtectedRoute><Scenarios /></ProtectedRoute>} />
             <Route path="/rate-assumptions" element={<ProtectedRoute><RateAssumptions /></ProtectedRoute>} />
