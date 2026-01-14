@@ -62,7 +62,7 @@ export function useRebalanceAudit() {
   const { user } = useAuth();
   const { allocation, totalBalance, isLoading: portfolioLoading } = usePortfolioData();
   const { beneficiaries, isLoading: beneficiariesLoading } = useBeneficiaries();
-  const { activeScenario } = useScenarios();
+  // Scenarios hook for baseline data
 
   const [holdings, setHoldings] = useState<HoldingWithBasis[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,8 +150,8 @@ export function useRebalanceAudit() {
 
   // Calculate RMD for QCD eligibility
   const rmdAmount = useMemo(() => {
-    const rmdStartAge = getRMDStartAge(new Date().getFullYear() - userAge);
-    if (userAge < rmdStartAge) return 0;
+    const rmdStartInfo = getRMDStartAge(new Date().getFullYear() - userAge);
+    if (userAge < rmdStartInfo.age) return 0;
     
     // Get traditional IRA balance from allocation
     const iraBalance = totalBalance * 0.4; // Estimate 40% in tax-deferred
