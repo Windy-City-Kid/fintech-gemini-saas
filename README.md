@@ -1,73 +1,109 @@
-# Welcome to your Lovable project
+# Retirement Planning Dashboard
 
-## Project info
+A comprehensive fintech application for retirement planning, featuring Monte Carlo simulations, tax optimization strategies, and AI-powered financial guidance.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+**URL**: https://lovable.dev/projects/joyful-savings-dash
 
-## How can I edit this code?
+## Technology Stack
 
-There are several ways of editing your application.
+- **Frontend**: React 18, TypeScript, Vite
+- **UI**: Tailwind CSS, shadcn/ui, Recharts, Framer Motion
+- **Backend**: Supabase (via Lovable Cloud)
+- **Integrations**: Plaid (account aggregation), Stripe (subscriptions)
 
-**Use Lovable**
+## Project Structure
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/joyful-savings-dash) and start prompting.
+```
+src/
+├── components/
+│   ├── advisor/          # AI Advisor sidebar & chat interface
+│   ├── buckets/          # Time-segmentation bucket strategy
+│   ├── charts/           # Reusable chart components
+│   ├── dashboard/        # Main dashboard components
+│   ├── estate/           # Estate planning & beneficiaries
+│   ├── income/           # Income source management
+│   ├── layout/           # App layout, sidebar, navigation
+│   ├── onboarding/       # User onboarding flow
+│   ├── rebalance/        # Year-end rebalance audit module
+│   ├── scenarios/        # Monte Carlo, Roth, SS strategies
+│   ├── ui/               # shadcn/ui primitives
+│   └── withdrawal/       # Withdrawal strategy components
+├── contexts/             # React contexts (Auth, ChartHover, AIAdvisor)
+├── hooks/                # Custom React hooks
+├── lib/                  # Core business logic engines
+├── pages/                # Route page components
+└── workers/              # Web Workers (Monte Carlo)
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+supabase/
+├── config.toml           # Supabase configuration
+└── functions/            # Edge Functions
 ```
 
-**Edit a file directly in GitHub**
+## Core Logic Locations
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 📊 Income & Cash Flow
+- **`src/lib/cashFlowEngine.ts`** - Cash flow projections and gap analysis
+- **`src/hooks/useIncomeSources.ts`** - Income source data management
+- **`src/hooks/useCashFlowDashboard.ts`** - Dashboard state aggregation
+- **`src/components/income/`** - Income category cards, forms, charts
 
-**Use GitHub Codespaces**
+### 💰 Tax Optimization (2026 OBBB Act Compliant)
+- **`src/lib/taxBracketEngine.ts`** - Federal tax brackets (2026), IRMAA cliff detection
+- **`src/lib/irsLimits2026.ts`** - IRS contribution limits, Super Catch-Up (SECURE 2.0)
+- **`src/lib/rothConversionEngine.ts`** - Roth conversion ladder optimization
+- **`src/lib/stateTax2026Engine.ts`** - State-specific tax rules for all 50 states
+- **`src/lib/withdrawalEngine.ts`** - Tax-efficient withdrawal sequencing
+- **`src/hooks/useRothConversion.ts`** - Roth strategy state management
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 🤖 AI Advisor
+- **`supabase/functions/ai-advisor/index.ts`** - Edge function with streaming responses
+- **`supabase/functions/retirement-coach/index.ts`** - Contextual coaching prompts
+- **`src/hooks/useAIAdvisor.ts`** - Client-side chat management
+- **`src/contexts/AIAdvisorContext.tsx`** - Global advisor state
+- **`src/components/advisor/`** - Sidebar UI, "Ask AI" button
 
-## What technologies are used for this project?
+### 📈 Simulation Engine
+- **`src/workers/monteCarloWorker.ts`** - Latin Hypercube Sampling (5,000 trials)
+- **`src/lib/guardrailsEngine.ts`** - Guyton-Klinger spending guardrails
+- **`src/lib/socialSecurityCalculator.ts`** - SS benefit calculations
+- **`src/lib/socialSecurityOptimizer.ts`** - Spousal & survivor optimization
 
-This project is built with:
+### 🏦 Account Aggregation
+- **`supabase/functions/create-link-token/index.ts`** - Plaid Link initialization
+- **`supabase/functions/exchange-public-token/index.ts`** - Token exchange
+- **`supabase/functions/plaid-webhook/index.ts`** - Balance sync with DLQ
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Key Features
 
-## How can I deploy this project?
+1. **Monte Carlo Simulation** - 5,000-trial retirement success analysis
+2. **Social Security Optimizer** - Spousal/survivor benefit maximization
+3. **Roth Conversion Explorer** - Tax-bracket filling strategies
+4. **Guardrail System** - Dynamic spending adjustments
+5. **Relocation Explorer** - State tax comparison (2026 data)
+6. **Estate Planning** - Beneficiary allocation & tax impact
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Development
 
-## Can I connect a custom domain to my Lovable project?
+```bash
+# Install dependencies
+npm install
 
-Yes, you can!
+# Start development server
+npm run dev
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# Build for production
+npm run build
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Environment Variables
+
+Configured automatically via Lovable Cloud:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_PROJECT_ID`
+
+## Compliance
+
+This application includes a mandatory compliance header: **"Educational tool only. No investment advice provided."**
+
+All financial calculations use 2026 tax law projections based on the OBBB Act framework.

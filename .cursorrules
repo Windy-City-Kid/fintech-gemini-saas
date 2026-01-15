@@ -1,0 +1,119 @@
+# Cursor Rules - 2026 Fintech Guardrails
+
+## Project Context
+
+This is a retirement planning fintech application. All code must comply with financial industry standards, regulatory requirements, and security best practices.
+
+## TypeScript Requirements
+
+- **Use TypeScript for ALL financial calculations** to ensure type safety.
+- Define explicit interfaces for all financial data structures.
+- Avoid `any` type in financial logic - use proper typing or `unknown` with type guards.
+- Use `number` type for monetary values (consider BigInt for very large amounts).
+- Validate all numerical inputs before calculations.
+
+```typescript
+// ✅ Good
+interface TaxCalculation {
+  taxableIncome: number;
+  federalTax: number;
+  effectiveRate: number;
+}
+
+// ❌ Bad
+const calculateTax = (income: any) => { ... }
+```
+
+## 2026 OBBB Act Tax Compliance
+
+- **Follow the 2026 OBBB Act tax brackets** for all withdrawal logic.
+- Reference `src/lib/taxBracketEngine.ts` for current federal brackets.
+- Reference `src/lib/irsLimits2026.ts` for contribution limits.
+- Apply IRMAA cliff detection for Medicare surcharge warnings.
+- Use SECURE 2.0 Super Catch-Up rules for ages 60-63.
+
+### 2026 Federal Tax Brackets (MFJ)
+- 10%: $0 - $24,000
+- 12%: $24,000 - $97,450
+- 22%: $97,450 - $201,200
+- 24%: $201,200 - $383,900
+- 32%: $383,900 - $487,450
+- 35%: $487,450 - $731,200
+- 37%: $731,200+
+
+## Data Security (RLS Required)
+
+- **All sensitive user data must be handled via Supabase RLS policies**.
+- Never expose user financial data without auth.uid() verification.
+- Mask personally identifiable information (PII) in logs.
+- Do not store plain-text API keys in code.
+- Use server-side validation for all financial operations.
+
+```sql
+-- ✅ Good RLS Policy
+CREATE POLICY "Users see own data"
+ON public.accounts
+FOR SELECT
+USING (auth.uid() = user_id);
+```
+
+## Financial Calculation Best Practices
+
+1. **Avoid floating-point errors** - Round monetary values appropriately.
+2. **Use consistent rounding** - `Math.round(value * 100) / 100` for cents.
+3. **Handle edge cases** - Zero balances, negative values, undefined inputs.
+4. **Document assumptions** - Comment inflation rates, return assumptions.
+5. **Cite sources** - Reference IRS notices for tax constants.
+
+## Core Logic Files (Do Not Duplicate)
+
+### Single Source of Truth:
+- **Tax Brackets**: `src/lib/taxBracketEngine.ts`
+- **IRS Limits**: `src/lib/irsLimits2026.ts`
+- **Social Security**: `src/lib/socialSecurityCalculator.ts`
+- **RMD Calculator**: `src/lib/rmdCalculator.ts`
+- **State Taxes**: `src/lib/stateTax2026Engine.ts`
+
+### Import Constants - Don't Redefine:
+```typescript
+// ✅ Good
+import { IRS_LIMITS_2026 } from '@/lib/irsLimits2026';
+import { calculateBenefitAdjustment } from '@/lib/socialSecurityCalculator';
+
+// ❌ Bad - duplicating constants
+const COLA_RATE = 0.028; // Don't define separately
+```
+
+## Testing Financial Logic
+
+- Unit test all tax calculations with known inputs/outputs.
+- Test edge cases: age 62, 67, 70 for SS; ages 60-63 for Super Catch-Up.
+- Validate RMD calculations against IRS Uniform Lifetime Table.
+- Test IRMAA bracket transitions.
+
+## Error Handling
+
+- Use structured error responses for financial operations.
+- Log errors with context but mask sensitive data.
+- Provide user-friendly error messages for validation failures.
+- Never fail silently on financial calculations.
+
+## AI Advisor Guidelines
+
+- Ground all advice in user's actual plan data.
+- Include disclaimers for complex tax strategies.
+- Reference specific charts/visualizations when explaining.
+- Translate financial jargon to plain language.
+
+## Performance
+
+- Use Web Workers for heavy simulations (Monte Carlo).
+- Memoize expensive calculations with `useMemo`.
+- Lazy-load scenario comparison charts.
+- Cache static reference data (state tax rules).
+
+## Compliance Reminder
+
+This application displays: **"Educational tool only. No investment advice provided."**
+
+Never remove or hide this compliance header.
