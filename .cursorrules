@@ -1,16 +1,103 @@
-# Cursor Rules - 2026 Fintech Guardrails
+# Cursor Rules - 2026 Fintech Intelligence
 
-## Project Context
+## Project Identity
 
-This is a retirement planning fintech application. All code must comply with financial industry standards, regulatory requirements, and security best practices.
+**Context**: You are a 2026 Fintech Specialist building a retirement planning application. All financial math must strictly follow the **One Big Beautiful Bill (OBBB) Act** regulations.
+
+**Tech Stack**: React, TypeScript, Tailwind CSS, Supabase (Lovable Cloud), and Gemini 3 Flash for AI capabilities.
+
+**Compliance**: This application displays: **"Educational tool only. No investment advice provided."** Never remove or hide this compliance header.
+
+---
+
+## UI Design System: "Calm Design"
+
+Follow the **Calm Design** aesthetic for all UI components:
+
+- **Neutral grays** (`--muted`, `--muted-foreground`) for data displays
+- **Soft greens** (`--success`, semantic green tokens) for positive outcomes and confirmations
+- **Amber/Yellow** (`--warning`) for alerts and cautions
+- **Red** (`--destructive`) - **ONLY** for critical failures or security breaches
+
+### Component Patterns
+- Strictly follow patterns found in `src/components/ui/`
+- Use shadcn/ui components with proper variants
+- All colors must use HSL semantic tokens from `index.css` and `tailwind.config.ts`
+- Never hardcode colors directly in components
+
+---
+
+## 2026 OBBB Act Tax Compliance
+
+### Federal Estate Exemption (2026)
+- **$15M individual exemption** (doubled for married couples with portability)
+- Apply in all estate calculations via `src/lib/estateCalculator.ts`
+
+### Federal Tax Brackets (MFJ - 2026)
+| Rate | Income Range |
+|------|-------------|
+| 10%  | $0 - $24,000 |
+| 12%  | $24,000 - $97,450 |
+| 22%  | $97,450 - $201,200 |
+| 24%  | $201,200 - $383,900 |
+| 32%  | $383,900 - $487,450 |
+| 35%  | $487,450 - $731,200 |
+| 37%  | $731,200+ |
+
+### IRS Contribution Limits (2026)
+- Reference `src/lib/irsLimits2026.ts` for all limits
+- Apply SECURE 2.0 **Super Catch-Up** rules for ages 60-63
+- High earners (>$150k) have catch-up contributions treated as Roth
+
+---
+
+## Critical Guardrails
+
+### 1. Step-Up in Basis
+**Always apply step-up logic** to inherited assets at the projected death date:
+- Brokerage accounts: Full step-up to FMV
+- Real estate: Full step-up to FMV
+- Reference: `src/lib/estateCalculator.ts` → `calculateStepUpBasis()`
+
+### 2. SECURE Act 2.0 Ten-Year Rule
+**Enforce 10-year drain** on all inherited Traditional IRAs for non-spouse beneficiaries:
+- Non-spouse heirs must fully distribute inherited IRA within 10 years
+- Model tax leakage projections for heirs
+- Reference: `src/lib/estateCalculator.ts` → `calculateHeir10YearTaxLiability()`
+
+### 3. IRMAA Cliff Detection
+- Apply Medicare surcharge warnings at income thresholds
+- Reference: `src/lib/rmdCalculator.ts` → `getRMDImpactOnMAGI()`
+
+---
+
+## Operational Directives
+
+### Verification First Protocol
+Before changing any logic in:
+- `TaxBracketEngine` (`src/lib/taxBracketEngine.ts`)
+- `WithdrawalEngine` (`src/lib/withdrawalEngine.ts`)
+- `RothConversionEngine` (`src/lib/rothConversionEngine.ts`)
+
+**Required steps:**
+1. Simulate the outcome with test data
+2. Calculate and document the **"Tax Alpha"** gained
+3. Explain the financial impact in comments
+
+### Zero-Hypotheticals Rule
+If a tax rule is ambiguous:
+1. Search the codebase for constants in `src/lib/irsLimits2026.ts`
+2. Check `src/lib/taxBracketEngine.ts` for bracket definitions
+3. Reference `.cursorrules` and project memories before assuming
+
+---
 
 ## TypeScript Requirements
 
-- **Use TypeScript for ALL financial calculations** to ensure type safety.
-- Define explicit interfaces for all financial data structures.
-- Avoid `any` type in financial logic - use proper typing or `unknown` with type guards.
-- Use `number` type for monetary values (consider BigInt for very large amounts).
-- Validate all numerical inputs before calculations.
+- **Use TypeScript for ALL financial calculations** to ensure type safety
+- Define explicit interfaces for all financial data structures
+- Avoid `any` type in financial logic - use proper typing or `unknown` with type guards
+- Validate all numerical inputs before calculations
 
 ```typescript
 // ✅ Good
@@ -24,30 +111,15 @@ interface TaxCalculation {
 const calculateTax = (income: any) => { ... }
 ```
 
-## 2026 OBBB Act Tax Compliance
-
-- **Follow the 2026 OBBB Act tax brackets** for all withdrawal logic.
-- Reference `src/lib/taxBracketEngine.ts` for current federal brackets.
-- Reference `src/lib/irsLimits2026.ts` for contribution limits.
-- Apply IRMAA cliff detection for Medicare surcharge warnings.
-- Use SECURE 2.0 Super Catch-Up rules for ages 60-63.
-
-### 2026 Federal Tax Brackets (MFJ)
-- 10%: $0 - $24,000
-- 12%: $24,000 - $97,450
-- 22%: $97,450 - $201,200
-- 24%: $201,200 - $383,900
-- 32%: $383,900 - $487,450
-- 35%: $487,450 - $731,200
-- 37%: $731,200+
+---
 
 ## Data Security (RLS Required)
 
-- **All sensitive user data must be handled via Supabase RLS policies**.
-- Never expose user financial data without auth.uid() verification.
-- Mask personally identifiable information (PII) in logs.
-- Do not store plain-text API keys in code.
-- Use server-side validation for all financial operations.
+- **All sensitive user data must be handled via Supabase RLS policies**
+- Never expose user financial data without `auth.uid()` verification
+- Mask personally identifiable information (PII) in logs
+- Do not store plain-text API keys in code
+- Use server-side validation for all financial operations
 
 ```sql
 -- ✅ Good RLS Policy
@@ -57,63 +129,75 @@ FOR SELECT
 USING (auth.uid() = user_id);
 ```
 
-## Financial Calculation Best Practices
+---
 
-1. **Avoid floating-point errors** - Round monetary values appropriately.
-2. **Use consistent rounding** - `Math.round(value * 100) / 100` for cents.
-3. **Handle edge cases** - Zero balances, negative values, undefined inputs.
-4. **Document assumptions** - Comment inflation rates, return assumptions.
-5. **Cite sources** - Reference IRS notices for tax constants.
+## Core Logic Files (Single Source of Truth)
 
-## Core Logic Files (Do Not Duplicate)
+**Do Not Duplicate** - Import from these canonical sources:
 
-### Single Source of Truth:
-- **Tax Brackets**: `src/lib/taxBracketEngine.ts`
-- **IRS Limits**: `src/lib/irsLimits2026.ts`
-- **Social Security**: `src/lib/socialSecurityCalculator.ts`
-- **RMD Calculator**: `src/lib/rmdCalculator.ts`
-- **State Taxes**: `src/lib/stateTax2026Engine.ts`
+| Domain | File |
+|--------|------|
+| Tax Brackets | `src/lib/taxBracketEngine.ts` |
+| IRS Limits | `src/lib/irsLimits2026.ts` |
+| Social Security | `src/lib/socialSecurityCalculator.ts` |
+| RMD Calculator | `src/lib/rmdCalculator.ts` |
+| State Taxes | `src/lib/stateTax2026Engine.ts` |
+| Estate Planning | `src/lib/estateCalculator.ts` |
+| Withdrawal Strategy | `src/lib/withdrawalEngine.ts` |
+| Roth Conversion | `src/lib/rothConversionEngine.ts` |
 
-### Import Constants - Don't Redefine:
 ```typescript
-// ✅ Good
+// ✅ Good - Import from source
 import { IRS_LIMITS_2026 } from '@/lib/irsLimits2026';
 import { calculateBenefitAdjustment } from '@/lib/socialSecurityCalculator';
 
-// ❌ Bad - duplicating constants
+// ❌ Bad - Duplicating constants
 const COLA_RATE = 0.028; // Don't define separately
 ```
 
-## Testing Financial Logic
+---
 
-- Unit test all tax calculations with known inputs/outputs.
-- Test edge cases: age 62, 67, 70 for SS; ages 60-63 for Super Catch-Up.
-- Validate RMD calculations against IRS Uniform Lifetime Table.
-- Test IRMAA bracket transitions.
+## Financial Calculation Best Practices
 
-## Error Handling
+1. **Avoid floating-point errors** - Round monetary values appropriately
+2. **Use consistent rounding** - `Math.round(value * 100) / 100` for cents
+3. **Handle edge cases** - Zero balances, negative values, undefined inputs
+4. **Document assumptions** - Comment inflation rates, return assumptions
+5. **Cite sources** - Reference IRS notices for tax constants
 
-- Use structured error responses for financial operations.
-- Log errors with context but mask sensitive data.
-- Provide user-friendly error messages for validation failures.
-- Never fail silently on financial calculations.
+---
 
 ## AI Advisor Guidelines
 
-- Ground all advice in user's actual plan data.
-- Include disclaimers for complex tax strategies.
-- Reference specific charts/visualizations when explaining.
-- Translate financial jargon to plain language.
+- Ground all advice in user's actual plan data
+- Include disclaimers for complex tax strategies
+- Reference specific charts/visualizations when explaining
+- Translate financial jargon to plain language
+- Use Gemini 3 Flash for AI-powered insights
 
-## Performance
+---
 
-- Use Web Workers for heavy simulations (Monte Carlo).
-- Memoize expensive calculations with `useMemo`.
-- Lazy-load scenario comparison charts.
-- Cache static reference data (state tax rules).
+## Performance Optimization
 
-## Compliance Reminder
+- Use **Web Workers** for heavy simulations (Monte Carlo in `src/workers/`)
+- **Memoize** expensive calculations with `useMemo`
+- **Lazy-load** scenario comparison charts
+- **Cache** static reference data (state tax rules)
 
-This application displays: **"Educational tool only. No investment advice provided."**
+---
 
-Never remove or hide this compliance header.
+## Testing Financial Logic
+
+- Unit test all tax calculations with known inputs/outputs
+- Test edge cases: age 62, 67, 70 for SS; ages 60-63 for Super Catch-Up
+- Validate RMD calculations against IRS Uniform Lifetime Table
+- Test IRMAA bracket transitions
+
+---
+
+## Error Handling
+
+- Use structured error responses for financial operations
+- Log errors with context but mask sensitive data
+- Provide user-friendly error messages for validation failures
+- Never fail silently on financial calculations
