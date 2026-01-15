@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { SecurityActivityTable } from '@/components/SecurityActivityTable';
 import { toast } from 'sonner';
 
 const profileSchema = z.object({
@@ -350,6 +351,10 @@ export default function Settings() {
                 <p>• Row-level security ensures data isolation between users</p>
                 <p>• Sessions automatically expire after inactivity</p>
               </div>
+            </div>
+
+            <div className="stat-card">
+              <SecurityActivityTable />
             </div>
           </TabsContent>
 

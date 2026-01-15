@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
 
 const authSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -22,7 +23,8 @@ type AuthFormData = z.infer<typeof authSchema>;
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const [isResetting, setIsResetting] = useState(false);
+  const { signIn, signUp, user, resetPassword } = useAuth();
   const navigate = useNavigate();
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<AuthFormData>({
@@ -31,6 +33,13 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
+      // RECOVERY GUARD: Don't redirect if we're in password recovery flow
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery') || window.location.pathname === '/reset-password') {
+        // User is in password recovery flow - don't redirect away
+        return;
+      }
+      
       // Check if user has completed onboarding by checking for an active scenario
       const checkOnboarding = async () => {
         const { data: scenarios } = await supabase
@@ -215,6 +224,35 @@ export default function Auth() {
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
+
+          {!isSignUp && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={async () => {
+                  const email = (document.getElementById('email') as HTMLInputElement)?.value;
+                  if (!email) {
+                    toast.error('Please enter your email address');
+                    return;
+                  }
+                  setIsResetting(true);
+                  const { error } = await resetPassword(email);
+                  setIsResetting(false);
+                  if (error) {
+                    toast.error('Failed to send reset email', { description: error.message });
+                  } else {
+                    toast.success('Reset email sent', {
+                      description: 'Check your email for password reset instructions.',
+                    });
+                  }
+                }}
+                disabled={isResetting}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                {isResetting ? 'Sending...' : 'Forgot password?'}
+              </button>
+            </div>
+          )}
 
           <div className="mt-6 text-center">
             <button

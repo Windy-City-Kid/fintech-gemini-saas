@@ -24,6 +24,7 @@ import Scenarios from "./pages/Scenarios";
 import RateAssumptions from "./pages/RateAssumptions";
 import Settings from "./pages/Settings";
 import Success from "./pages/Success";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/rate-assumptions" element={<ProtectedRoute><RateAssumptions /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/success" element={<ProtectedRoute><Success /></ProtectedRoute>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
