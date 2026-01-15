@@ -2,11 +2,17 @@
 
 ## Project Identity
 
+**App Name**: joyful-savings-dash
+
 **Context**: You are a 2026 Fintech Specialist building a retirement planning application. All financial math must strictly follow the **One Big Beautiful Bill (OBBB) Act** regulations.
 
-**Tech Stack**: React, TypeScript, Tailwind CSS, Supabase (Lovable Cloud), and Gemini 3 Flash for AI capabilities.
+**Tech Stack**: React (Vite), TypeScript, Tailwind CSS, Supabase (Auth, DB, Storage), and Gemini 3 Flash for AI capabilities.
 
 **Compliance**: This application displays: **"Educational tool only. No investment advice provided."** Never remove or hide this compliance header.
+
+**Core Strategy Focus**: 
+- **Lull Strategy** - Optimize low-income years between retirement and Social Security claiming to maximize Roth conversions and minimize lifetime taxes
+- **$15M Estate Exemption** - Model wealth transfer strategies under the 2026 OBBB Act
 
 ---
 
@@ -15,8 +21,8 @@
 Follow the **Calm Design** aesthetic for all UI components:
 
 - **Neutral grays** (`--muted`, `--muted-foreground`) for data displays
-- **Soft greens** (`--success`, semantic green tokens) for positive outcomes and confirmations
-- **Amber/Yellow** (`--warning`) for alerts and cautions
+- **Soft greens** (`--success`, semantic green tokens) for positive outcomes and financial growth
+- **Amber/Yellow** (`--warning`) for tax alerts and cautions
 - **Red** (`--destructive`) - **ONLY** for critical failures or security breaches
 
 ### Component Patterns
@@ -24,6 +30,65 @@ Follow the **Calm Design** aesthetic for all UI components:
 - Use shadcn/ui components with proper variants
 - All colors must use HSL semantic tokens from `index.css` and `tailwind.config.ts`
 - Never hardcode colors directly in components
+
+---
+
+## Coding Standards
+
+### Type Safety
+- **Use strict TypeScript** for ALL financial calculations
+- **Prefer `interface` over `type`** for object shapes
+- Define explicit interfaces for all financial data structures
+- Avoid `any` type in financial logic - use proper typing or `unknown` with type guards
+- Validate all numerical inputs before calculations
+
+```typescript
+// ✅ Good - Use interface
+interface TaxCalculation {
+  taxableIncome: number;
+  federalTax: number;
+  effectiveRate: number;
+}
+
+// ❌ Bad - Avoid any
+const calculateTax = (income: any) => { ... }
+```
+
+### State Management
+- **Use TanStack React Query** for all Supabase data fetching and caching
+- Leverage `useQuery` for read operations with proper cache keys
+- Use `useMutation` with optimistic updates for write operations
+- Implement proper error and loading states
+
+```typescript
+// ✅ Good - React Query for data fetching
+const { data: accounts } = useQuery({
+  queryKey: ['accounts', userId],
+  queryFn: () => supabase.from('accounts').select('*').eq('user_id', userId)
+});
+
+// ❌ Bad - Direct useEffect fetching
+useEffect(() => { fetchAccounts(); }, []);
+```
+
+---
+
+## Data Security (RLS Required)
+
+- **All database interactions must happen through Supabase client libraries**
+- All sensitive user data must be handled via Supabase RLS policies respecting `auth.uid()`
+- Never expose user financial data without `auth.uid()` verification
+- Mask personally identifiable information (PII) in logs
+- Do not store plain-text API keys in code
+- Use server-side validation for all financial operations
+
+```sql
+-- ✅ Good RLS Policy
+CREATE POLICY "Users see own data"
+ON public.accounts
+FOR SELECT
+USING (auth.uid() = user_id);
+```
 
 ---
 
@@ -51,37 +116,49 @@ Follow the **Calm Design** aesthetic for all UI components:
 
 ---
 
-## Critical Guardrails
+## Financial Intelligence Rules
 
-### 1. Step-Up in Basis
-**Always apply step-up logic** to inherited assets at the projected death date:
+### 1. Stepped-up Basis
+**Always model the reset of cost basis** for inherited assets at death:
 - Brokerage accounts: Full step-up to FMV
 - Real estate: Full step-up to FMV
 - Reference: `src/lib/estateCalculator.ts` → `calculateStepUpBasis()`
 
 ### 2. SECURE Act 2.0 Ten-Year Rule
-**Enforce 10-year drain** on all inherited Traditional IRAs for non-spouse beneficiaries:
+**Force an empty-account projection within 10 years** for any inherited Traditional IRA by non-spouse beneficiaries:
 - Non-spouse heirs must fully distribute inherited IRA within 10 years
 - Model tax leakage projections for heirs
 - Reference: `src/lib/estateCalculator.ts` → `calculateHeir10YearTaxLiability()`
 
-### 3. IRMAA Cliff Detection
+### 3. Roth Conversion Strategy
+**Prioritize Roth conversions during years where the user's marginal tax bracket is lower than their projected retirement bracket**:
+- Target the "Lull Period" between retirement and Social Security
+- Fill lower brackets (12%, 22%) before income rises
+- Factor in IRMAA 2-year lookback for Medicare premiums
+- Reference: `src/lib/rothConversionEngine.ts` → `optimizeRothConversions()`
+
+### 4. IRMAA Cliff Detection
 - Apply Medicare surcharge warnings at income thresholds
 - Reference: `src/lib/rmdCalculator.ts` → `getRMDImpactOnMAGI()`
 
 ---
 
-## Operational Directives
+## Cursor Operational Protocol
+
+### Composer Mode Analysis
+**Before refactoring**, always analyze the relationship between:
+1. **TaxBracketEngine** (`src/lib/taxBracketEngine.ts`)
+2. **WithdrawalEngine** (`src/lib/withdrawalEngine.ts`) 
+3. **RothConversionEngine** (`src/lib/rothConversionEngine.ts`)
+4. **Success Dashboard** (`src/pages/Dashboard.tsx`, `src/pages/Success.tsx`)
+5. **Supabase Schema** (`src/integrations/supabase/types.ts`)
 
 ### Verification First Protocol
-Before changing any logic in:
-- `TaxBracketEngine` (`src/lib/taxBracketEngine.ts`)
-- `WithdrawalEngine` (`src/lib/withdrawalEngine.ts`)
-- `RothConversionEngine` (`src/lib/rothConversionEngine.ts`)
+Before changing any logic in the engines above:
 
 **Required steps:**
 1. Simulate the outcome with test data
-2. Calculate and document the **"Tax Alpha"** gained
+2. Calculate and document the **"Tax Alpha"** gained (money saved/gained)
 3. Explain the financial impact in comments
 
 ### Zero-Hypotheticals Rule
@@ -89,45 +166,6 @@ If a tax rule is ambiguous:
 1. Search the codebase for constants in `src/lib/irsLimits2026.ts`
 2. Check `src/lib/taxBracketEngine.ts` for bracket definitions
 3. Reference `.cursorrules` and project memories before assuming
-
----
-
-## TypeScript Requirements
-
-- **Use TypeScript for ALL financial calculations** to ensure type safety
-- Define explicit interfaces for all financial data structures
-- Avoid `any` type in financial logic - use proper typing or `unknown` with type guards
-- Validate all numerical inputs before calculations
-
-```typescript
-// ✅ Good
-interface TaxCalculation {
-  taxableIncome: number;
-  federalTax: number;
-  effectiveRate: number;
-}
-
-// ❌ Bad
-const calculateTax = (income: any) => { ... }
-```
-
----
-
-## Data Security (RLS Required)
-
-- **All sensitive user data must be handled via Supabase RLS policies**
-- Never expose user financial data without `auth.uid()` verification
-- Mask personally identifiable information (PII) in logs
-- Do not store plain-text API keys in code
-- Use server-side validation for all financial operations
-
-```sql
--- ✅ Good RLS Policy
-CREATE POLICY "Users see own data"
-ON public.accounts
-FOR SELECT
-USING (auth.uid() = user_id);
-```
 
 ---
 
