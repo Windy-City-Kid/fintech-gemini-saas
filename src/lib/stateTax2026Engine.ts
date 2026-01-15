@@ -10,13 +10,14 @@
  */
 
 import { StateTaxRule } from '@/hooks/useStateTaxRules';
+import { FEDERAL_ESTATE_EXEMPTION_2026, FEDERAL_ESTATE_TAX_RATE } from './estateCalculator';
 
 // 2026 SSA Constants
 export const SSA_2026_CONSTANTS = {
   COLA_RATE: 0.028,                    // 2.8% COLA for 2026
   MAX_TAXABLE_EARNINGS: 184500,        // 2026 wage base
-  FEDERAL_EXEMPTION: 15000000,         // 2026 estate tax exemption
-  ESTATE_TAX_RATE: 0.40,               // 40% federal estate tax
+  FEDERAL_EXEMPTION: FEDERAL_ESTATE_EXEMPTION_2026, // 2026 estate tax exemption (canonical source)
+  ESTATE_TAX_RATE: FEDERAL_ESTATE_TAX_RATE,         // 40% federal estate tax (canonical source)
   IRMAA_BASE_THRESHOLD_SINGLE: 106000, // 2026 IRMAA threshold
   IRMAA_BASE_THRESHOLD_JOINT: 212000,  // 2026 IRMAA threshold (MFJ)
 };

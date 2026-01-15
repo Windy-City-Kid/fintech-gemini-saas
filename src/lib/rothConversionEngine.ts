@@ -6,6 +6,7 @@
  */
 
 import { StateTaxRule } from '@/hooks/useStateTaxRules';
+import { FEDERAL_TAX_BRACKETS_MFJ, FEDERAL_TAX_BRACKETS_SINGLE, STANDARD_DEDUCTION_MFJ, STANDARD_DEDUCTION_SINGLE } from './taxBracketEngine';
 
 export interface AccountForConversion {
   id: string;
@@ -60,28 +61,6 @@ export interface ConversionParams {
   maxAnnualConversion?: number; // Optional cap per year
 }
 
-// 2026 Federal Tax Brackets (MFJ)
-const FEDERAL_BRACKETS_MFJ_2026 = [
-  { min: 0, max: 24800, rate: 0.10 },
-  { min: 24800, max: 101200, rate: 0.12 },
-  { min: 101200, max: 192500, rate: 0.22 },
-  { min: 192500, max: 383900, rate: 0.24 },
-  { min: 383900, max: 487450, rate: 0.32 },
-  { min: 487450, max: 731200, rate: 0.35 },
-  { min: 731200, max: Infinity, rate: 0.37 },
-];
-
-// 2026 Federal Tax Brackets (Single)
-const FEDERAL_BRACKETS_SINGLE_2026 = [
-  { min: 0, max: 12400, rate: 0.10 },
-  { min: 12400, max: 50600, rate: 0.12 },
-  { min: 50600, max: 96250, rate: 0.22 },
-  { min: 96250, max: 191950, rate: 0.24 },
-  { min: 191950, max: 243725, rate: 0.32 },
-  { min: 243725, max: 609350, rate: 0.35 },
-  { min: 609350, max: Infinity, rate: 0.37 },
-];
-
 // RMD Life Expectancy Table (Uniform Lifetime Table - IRS Table III)
 const RMD_FACTORS: Record<number, number> = {
   72: 27.4, 73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9,
@@ -99,8 +78,8 @@ function calculateFederalTax(
   filingStatus: 'single' | 'married_filing_jointly'
 ): { tax: number; marginalRate: number; effectiveRate: number } {
   const brackets = filingStatus === 'married_filing_jointly' 
-    ? FEDERAL_BRACKETS_MFJ_2026 
-    : FEDERAL_BRACKETS_SINGLE_2026;
+    ? FEDERAL_TAX_BRACKETS_MFJ 
+    : FEDERAL_TAX_BRACKETS_SINGLE;
   
   let tax = 0;
   let marginalRate = 0;
@@ -171,8 +150,8 @@ function findOptimalConversion(
   maxConversion: number
 ): number {
   const brackets = filingStatus === 'married_filing_jointly' 
-    ? FEDERAL_BRACKETS_MFJ_2026 
-    : FEDERAL_BRACKETS_SINGLE_2026;
+    ? FEDERAL_TAX_BRACKETS_MFJ 
+    : FEDERAL_TAX_BRACKETS_SINGLE;
   
   // Find the bracket ceiling for target rate
   const targetBracketInfo = brackets.find(b => b.rate >= targetBracket);

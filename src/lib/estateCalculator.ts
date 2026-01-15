@@ -180,8 +180,8 @@ export function projectEstate(params: EstateProjectionParams): EstateProjectionR
   const stateEstateTax = calculateStateEstateTax(taxableEstate, stateCode);
   const totalEstateTax = federalEstateTax + stateEstateTax;
   
-  // Net to heirs
-  const netToHeirs = totalAssets - totalEstateTax - charitableDeductions;
+  // Net to heirs (rounded to cents to prevent floating-point errors)
+  const netToHeirs = Math.round((totalAssets - totalEstateTax - charitableDeductions) * 100) / 100;
   
   // Step-up in basis calculation
   const stepUpBasis = calculateStepUpBasis(assets);

@@ -4,9 +4,7 @@
  * Includes all 12 states with estate taxes and 6 states with inheritance taxes
  */
 
-// 2026 Federal Estate Tax Constants
-export const FEDERAL_ESTATE_EXEMPTION_2026 = 15_000_000;
-export const FEDERAL_ESTATE_TAX_RATE = 0.40;
+import { FEDERAL_ESTATE_EXEMPTION_2026, FEDERAL_ESTATE_TAX_RATE } from './estateCalculator';
 
 // States with Estate Taxes (12 states + DC)
 export const STATE_ESTATE_TAX_2026: Record<string, {
@@ -475,7 +473,8 @@ export function projectEstateByAge(params: {
     const stepUpBasisBenefit = Math.max(0, unrealizedGains * heirMarginalRate);
     
     const totalTaxLeakage = federalEstateTax + stateEstateTax + inheritanceTax + heirIncomeTax;
-    const netToHeirs = projectedNetWorth - federalEstateTax - stateEstateTax - inheritanceTax;
+    // Round to cents to prevent floating-point errors
+    const netToHeirs = Math.round((projectedNetWorth - federalEstateTax - stateEstateTax - inheritanceTax) * 100) / 100;
 
     projections.push({
       age,

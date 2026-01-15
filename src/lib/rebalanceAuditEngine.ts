@@ -6,12 +6,13 @@
  */
 
 import { AssetAllocation } from './assetClassification';
+import { FEDERAL_ESTATE_EXEMPTION_2026 } from './estateCalculator';
 
 // ============ 2026 IRS LIMITS ============
 
 export const IRS_LIMITS_2026 = {
   capitalLossDeduction: 3000,
-  estateExemption: 15000000,
+  estateExemption: FEDERAL_ESTATE_EXEMPTION_2026,
   qcdMinAge: 70.5,
   qcdMaxAnnual: 105000,
   saltCap: 10000,
