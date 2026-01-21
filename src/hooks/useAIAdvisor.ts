@@ -95,7 +95,7 @@ export function useAIAdvisor({ planContext }: UseAIAdvisorOptions) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let assistantContent = '';
-      let assistantMessageId = crypto.randomUUID();
+      const assistantMessageId = crypto.randomUUID();
 
       // Add empty assistant message
       setMessages(prev => [...prev, {

@@ -187,7 +187,7 @@ export function AIAdvisorSidebar({ defaultOpen = false }: AIAdvisorSidebarProps)
               <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
                 <Sparkles className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-medium text-foreground mb-2">Hi, I'm Ariel! 👋</h3>
+              <h3 className="font-medium text-foreground mb-2">Hi, I&apos;m Ariel! 👋</h3>
               <p className="text-sm text-muted-foreground">
                 I have access to your complete retirement plan. Ask me anything about your finances, upload documents for analysis, or get chart explanations.
               </p>

@@ -205,7 +205,7 @@ export function PaycheckDashboard({
                 Transfer to Bank Account
               </DialogTitle>
               <DialogDescription>
-                This is a mockup demonstrating the "retirement paycheck" transfer feature.
+                This is a mockup demonstrating the &quot;retirement paycheck&quot; transfer feature.
               </DialogDescription>
             </DialogHeader>
 

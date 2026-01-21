@@ -104,7 +104,7 @@ export function RelocationExplorer({
       const projectedHomeValue = homeValue * Math.pow(1.03, year);
       
       // Estimate taxable income
-      let taxableIncome = inflatedSpending;
+      const taxableIncome = inflatedSpending;
       
       // Current state income tax
       if (currentRule.rate_type !== 'none') {

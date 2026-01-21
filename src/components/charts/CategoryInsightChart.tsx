@@ -167,7 +167,7 @@ export function CategoryInsightChart({
     return subCategories.reduce((sum, cat) => sum + (retirementData[cat.key] || 0), 0);
   }, [data, retirementAge, subCategories]);
 
-  const handleBarClick = (data: any) => {
+  const handleBarClick = (data: { activePayload?: Array<{ payload: CategoryData }> }) => {
     if (data?.activePayload?.[0]?.payload) {
       setSelectedData(data.activePayload[0].payload);
       setDialogOpen(true);

@@ -623,10 +623,10 @@ function runSimulation(params: SimulationParams, iterations: number): Simulation
     : MEDICAL_INFLATION_DEFAULT;
   
   // Initialize property/mortgage tracking
-  let mortgageBalance = params.property?.mortgageBalance || 0;
-  let mortgageMonthlyRate = (params.property?.mortgageInterestRate || 0) / 100 / 12;
-  let mortgageMonthlyPayment = params.property?.mortgageMonthlyPayment || 0;
-  let homeValue = params.property?.estimatedValue || 0;
+  const mortgageBalance = params.property?.mortgageBalance || 0;
+  const mortgageMonthlyRate = (params.property?.mortgageInterestRate || 0) / 100 / 12;
+  const mortgageMonthlyPayment = params.property?.mortgageMonthlyPayment || 0;
+  const homeValue = params.property?.estimatedValue || 0;
   const homeAppreciationRate = 0.03; // 3% annual appreciation
   
   for (let iter = 0; iter < iterations; iter++) {

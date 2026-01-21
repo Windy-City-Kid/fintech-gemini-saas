@@ -312,7 +312,7 @@ export function projectLifetimeWithdrawals(
   excessIncomeSettings?: { enabled: boolean; savePercentage: number; targetAccountId: string },
 ): AnnualWithdrawalSummary[] {
   const summaries: AnnualWithdrawalSummary[] = [];
-  let currentBalances = new Map<string, number>();
+  const currentBalances = new Map<string, number>();
   accounts.forEach(a => currentBalances.set(a.id, a.balance));
   
   for (const { year, age, gap } of annualSpendingGaps) {

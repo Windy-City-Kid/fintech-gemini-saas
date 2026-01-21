@@ -59,8 +59,8 @@ export function calculateMonthlyCashFlow(
   let gap = 0;
   let savedSurplus = 0;
   let unsavedSurplus = 0;
-  let fundedGap = 0;
-  let unfundedGap = 0;
+  const fundedGap = 0;
+  const unfundedGap = 0;
   
   if (netCashFlow >= 0) {
     // SURPLUS LOGIC
@@ -175,7 +175,7 @@ export function calculateAnnualCashFlow(
   accountBalances: { account: string; balance: number; type: 'taxable' | 'pretax' | 'roth' }[],
 ): AnnualCashFlowSummary {
   const monthlyResults: MonthlyCashFlowResult[] = [];
-  let currentBalances = [...accountBalances];
+  const currentBalances = [...accountBalances];
   let cumulativeUnfunded = 0;
   
   for (let month = 1; month <= 12; month++) {
