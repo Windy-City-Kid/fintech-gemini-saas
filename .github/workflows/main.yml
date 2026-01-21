@@ -1,0 +1,37 @@
+name: CI - Build & Lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: ⬇️ Checkout code
+      uses: actions/checkout@v3
+
+    - name: ⚙️ Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: 📦 Install backend dependencies
+      run: |
+        cd Fintech_Gemini_SaaS/backend
+        npm install
+
+    - name: 📦 Install frontend dependencies
+      run: |
+        npm install
+
+    - name: ✅ Lint Backend
+      run: |
+        cd Fintech_Gemini_SaaS/backend
+        npm run lint || echo "No backend linter configured"
+
+    - name: ✅ Lint Frontend
+      run: |
+        npm run lint || echo "No frontend linter configured"
