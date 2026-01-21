@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,40 +28,57 @@ import Success from "./pages/Success";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// CLEANUP ENTRY POINT: Create QueryClient outside component for stability
+// This prevents HMR invalidation and ensures QueryClient persists across hot reloads
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
+// CLEANUP ENTRY POINT: Single App component with no duplicate providers
+// Provider hierarchy is stable and doesn't cause HMR invalidation:
+// QueryClientProvider -> AuthProvider -> ChartHoverProvider -> TooltipProvider -> BrowserRouter
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <ChartHoverProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/summary" element={<ProtectedRoute><Summary /></ProtectedRoute>} />
-            <Route path="/connections" element={<ProtectedRoute><Connections /></ProtectedRoute>} />
-            <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
-            <Route path="/net-worth" element={<ProtectedRoute><NetWorth /></ProtectedRoute>} />
-            <Route path="/real-estate" element={<ProtectedRoute><RealEstate /></ProtectedRoute>} />
-            <Route path="/debts" element={<ProtectedRoute><Debts /></ProtectedRoute>} />
-            <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
-            <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
-            <Route path="/money-flows" element={<ProtectedRoute><MoneyFlows /></ProtectedRoute>} />
-            <Route path="/buckets" element={<ProtectedRoute><Buckets /></ProtectedRoute>} />
-            <Route path="/estate-planning" element={<ProtectedRoute><EstatePlanning /></ProtectedRoute>} />
-            <Route path="/scenarios" element={<ProtectedRoute><Scenarios /></ProtectedRoute>} />
-            <Route path="/rate-assumptions" element={<ProtectedRoute><RateAssumptions /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/success" element={<ProtectedRoute><Success /></ProtectedRoute>} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* PUBLIC ROUTES: Must be outside any AuthGuard or ProtectedRoute */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              
+              {/* PROTECTED ROUTES: Only /dashboard and /settings inside AuthGuard */}
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              
+              {/* All other protected routes */}
+              <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+              <Route path="/summary" element={<ProtectedRoute><Summary /></ProtectedRoute>} />
+              <Route path="/connections" element={<ProtectedRoute><Connections /></ProtectedRoute>} />
+              <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+              <Route path="/net-worth" element={<ProtectedRoute><NetWorth /></ProtectedRoute>} />
+              <Route path="/real-estate" element={<ProtectedRoute><RealEstate /></ProtectedRoute>} />
+              <Route path="/debts" element={<ProtectedRoute><Debts /></ProtectedRoute>} />
+              <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
+              <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+              <Route path="/money-flows" element={<ProtectedRoute><MoneyFlows /></ProtectedRoute>} />
+              <Route path="/buckets" element={<ProtectedRoute><Buckets /></ProtectedRoute>} />
+              <Route path="/estate-planning" element={<ProtectedRoute><EstatePlanning /></ProtectedRoute>} />
+              <Route path="/scenarios" element={<ProtectedRoute><Scenarios /></ProtectedRoute>} />
+              <Route path="/rate-assumptions" element={<ProtectedRoute><RateAssumptions /></ProtectedRoute>} />
+              <Route path="/success" element={<ProtectedRoute><Success /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
       </ChartHoverProvider>
     </AuthProvider>
   </QueryClientProvider>

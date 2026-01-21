@@ -33,6 +33,8 @@ const defaultHoverData: HoverData = {
 
 const ChartHoverContext = createContext<ChartHoverContextValue | undefined>(undefined);
 
+// VITE-COMPATIBLE EXPORT: Component as named export (stable for Fast Refresh)
+// Fast Refresh requires components to be exported in a stable way
 export function ChartHoverProvider({ children }: { children: React.ReactNode }) {
   const [hoverData, setHoverData] = useState<HoverData>(defaultHoverData);
   const [registeredCharts, setRegisteredCharts] = useState<string[]>([]);
@@ -76,6 +78,8 @@ export function ChartHoverProvider({ children }: { children: React.ReactNode }) 
   );
 }
 
+// VITE-COMPATIBLE EXPORT: Hook as named export (stable for Fast Refresh)
+// Hooks should be exported separately from components to prevent HMR invalidation
 export function useChartHover() {
   const context = useContext(ChartHoverContext);
   if (!context) {

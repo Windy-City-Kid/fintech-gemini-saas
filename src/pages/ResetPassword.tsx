@@ -28,11 +28,12 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(true); // Loading state for session initialization
 
   const { register, handleSubmit, formState: { errors }, watch } = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -41,47 +42,105 @@ export default function ResetPassword() {
   const password = watch('password');
 
   useEffect(() => {
+    // TOKEN PERSISTENCE: Listen for PASSWORD_RECOVERY event via onAuthStateChange
+    // This ensures we capture the recovery token and session activation
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY' && session?.user) {
+          // Recovery session is active - allow password update
+          setIsVerifying(false);
+          
+          // Ensure localStorage flag is set
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('is_resetting_password', 'true');
+          }
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          // Check if this is a recovery sign-in
+          const hash = window.location.hash;
+          if (hash.includes('type=recovery')) {
+            // Recovery session initialized - show password form
+            setIsVerifying(false);
+            
+            // Ensure localStorage flag is set
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem('is_resetting_password', 'true');
+            }
+          }
+        }
+      }
+    );
+
     // Preserve hash in URL for Supabase token processing
     // Supabase needs the hash parameters to process the recovery token
     const hash = window.location.hash;
-    if (hash && hash.includes('type=recovery')) {
-      // Ensure hash persists in URL - Supabase will extract tokens from it
-      // Don't manipulate the hash - let Supabase handle it
-    }
+    const hashParams = new URLSearchParams(hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const type = hashParams.get('type');
+    const isRecoveryFlow = type === 'recovery' || hash.includes('type=recovery');
+    
+    // If hash is present, Supabase will process it automatically
+    // The onAuthStateChange listener above will handle the PASSWORD_RECOVERY event
 
-    // Check if user has a valid session (from password recovery email)
-    // Don't redirect away if we're already on this page - let the user reset their password
-    const checkSession = async () => {
-      // Check if we're in password recovery flow by looking at hash params
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const type = hashParams.get('type');
+    // UI Feedback: Show "Verifying Recovery Link..." while session initializes
+    if (isRecoveryFlow || accessToken) {
+      // Wait for Supabase to process the recovery token and initialize session
+      const verifySession = async () => {
+        // Give Supabase time to process hash tokens
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (session && !sessionError) {
+          // Session initialized successfully - show password form
+          setIsVerifying(false);
+        } else if (!accessToken && !hash.includes('type=recovery')) {
+          // No recovery token and no session - invalid link
+          setIsVerifying(false);
+          toast.error('Invalid or expired reset link', {
+            description: 'Please request a new password reset email.',
+          });
+          navigate('/auth');
+        } else {
+          // Still processing - keep verifying state
+          // Check again after a delay
+          setTimeout(() => {
+            supabase.auth.getSession().then(({ data: { session } }) => {
+              if (session) {
+                setIsVerifying(false);
+              } else if (!accessToken) {
+                setIsVerifying(false);
+                toast.error('Invalid or expired reset link', {
+                  description: 'Please request a new password reset email.',
+                });
+                navigate('/auth');
+              }
+            });
+          }, 2000);
+        }
+      };
+
+      verifySession();
+    } else {
+      // Not in recovery flow - check session normally
+      setIsVerifying(false);
       
-      // If there's an access_token in the hash, Supabase will handle it
-      // Don't redirect immediately - wait for auth state to settle
-      if (type === 'recovery' || accessToken) {
-        // Supabase will process this automatically via onAuthStateChange
-        // Give it time to process the token
-        return;
-      }
-
-      // Only check session after a longer delay to let auth state fully settle
-      // This ensures Supabase has time to process the recovery token from the hash
       const timer = setTimeout(async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        // Only redirect if there's no session AND no recovery token in hash
-        if (!session && !accessToken && !hash.includes('type=recovery') && window.location.pathname === '/reset-password') {
+        if (!session && window.location.pathname === '/reset-password') {
           toast.error('Invalid or expired reset link', {
             description: 'Please request a new password reset email.',
           });
           navigate('/auth');
         }
-      }, 2000); // Increased delay to allow Supabase to process hash tokens
+      }, 1000);
 
       return () => clearTimeout(timer);
-    };
+    }
 
-    checkSession();
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const onSubmit = async (data: ResetPasswordFormData) => {
@@ -128,7 +187,13 @@ export default function ResetPassword() {
         description: 'Redirecting to sign in...',
       });
 
-      // OPTIONAL: Log user out to force them to sign in with new password
+      // CLEANUP: Remove localStorage flag after password is saved
+      // This allows user to return to normal dashboard access
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('is_resetting_password');
+      }
+
+      // Log user out to force them to sign in with new password
       // This verifies the new password works before accessing dashboard
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -140,10 +205,11 @@ export default function ResetPassword() {
         window.history.replaceState(null, '', window.location.pathname);
       }
 
-      // Redirect to auth page to sign in with new password
+      // CLEANUP: Success state redirects back to /auth (login) after password is changed
+      // This prevents getting stuck in a loop
       setTimeout(() => {
         navigate('/auth', { replace: true });
-      }, 500);
+      }, 1500);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to reset password';
       toast.error('Password reset failed', {
@@ -163,8 +229,35 @@ export default function ResetPassword() {
           <div>
             <h1 className="text-2xl font-bold mb-2">Password Reset Successful</h1>
             <p className="text-muted-foreground">
-              Your password has been updated. Redirecting to dashboard...
+              Your password has been updated. Redirecting to sign in...
             </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              You will be redirected automatically in a few seconds.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // UI Feedback: Show loading state while verifying recovery link
+  if (isVerifying || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-6 text-center">
+          <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Lock className="h-6 w-6 text-primary animate-pulse" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold mb-2">Verifying Recovery Link...</h1>
+            <p className="text-muted-foreground">
+              Please wait while we verify your password reset link.
+            </p>
+            <div className="mt-4 flex justify-center">
+              <div className="h-2 w-32 bg-primary/20 rounded-full overflow-hidden">
+                <div className="h-full w-1/3 bg-primary rounded-full animate-pulse" />
+              </div>
+            </div>
           </div>
         </div>
       </div>

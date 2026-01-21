@@ -24,6 +24,7 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
   const { signIn, signUp, user, resetPassword } = useAuth();
   const navigate = useNavigate();
 
@@ -31,16 +32,21 @@ export default function Auth() {
     resolver: zodResolver(authSchema),
   });
 
+  // THE SCALPEL FOR RESET: Only in Auth component, check for recovery hash
+  // If window.location.hash contains type=recovery, then and ONLY then, navigate to /reset-password
   useEffect(() => {
-    if (user) {
-      // RECOVERY GUARD: Don't redirect if we're in password recovery flow
+    if (typeof window !== 'undefined') {
       const hash = window.location.hash;
-      if (hash.includes('type=recovery') || window.location.pathname === '/reset-password') {
-        // User is in password recovery flow - don't redirect away
-        return;
+      if (hash.includes('type=recovery')) {
+        navigate('/reset-password' + hash, { replace: true });
       }
-      
-      // Check if user has completed onboarding by checking for an active scenario
+    }
+  }, [navigate]);
+
+  // Handle authenticated user redirect (only for sign-in, not signup)
+  useEffect(() => {
+    if (user && !signupSuccess) {
+      // User is authenticated and NOT in signup success state - redirect to dashboard/onboarding
       const checkOnboarding = async () => {
         const { data: scenarios } = await supabase
           .from('scenarios')
@@ -57,7 +63,7 @@ export default function Auth() {
       };
       checkOnboarding();
     }
-  }, [user, navigate]);
+  }, [user, signupSuccess, navigate]);
 
   const onSubmit = async (data: AuthFormData) => {
     setIsLoading(true);
@@ -72,11 +78,16 @@ export default function Auth() {
           } else {
             throw error;
           }
+          setSignupSuccess(false);
         } else {
+          // FIX: Show 'Check your email' message instead of forcing redirect
+          // After supabase.auth.signUp, if no error, show message and don't redirect
+          setSignupSuccess(true);
           toast.success('Account created!', { 
             description: 'Please check your email to verify your account.' 
           });
           reset();
+          // DO NOT redirect - user stays on auth page to see success message
         }
       } else {
         const { error } = await signIn(data.email, data.password);
@@ -89,9 +100,11 @@ export default function Auth() {
             throw error;
           }
         }
+        // Sign-in success - useEffect will handle redirect
       }
     } catch (error: any) {
       toast.error('Authentication failed', { description: error.message });
+      setSignupSuccess(false);
     } finally {
       setIsLoading(false);
     }
@@ -154,15 +167,36 @@ export default function Auth() {
 
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-2">
-              {isSignUp ? 'Create your account' : 'Welcome back'}
+              {signupSuccess ? 'Check your email' : (isSignUp ? 'Create your account' : 'Welcome back')}
             </h2>
             <p className="text-muted-foreground">
-              {isSignUp 
-                ? 'Start planning your financial future today' 
-                : 'Sign in to access your dashboard'}
+              {signupSuccess 
+                ? 'We sent you a verification email. Click the link in the email to activate your account.'
+                : (isSignUp 
+                  ? 'Start planning your financial future today' 
+                  : 'Sign in to access your dashboard')}
             </p>
           </div>
 
+          {signupSuccess ? (
+            <div className="space-y-4 p-6 rounded-lg bg-muted/30 border border-border">
+              <p className="text-sm text-muted-foreground text-center">
+                Check your email inbox (and spam folder) for the verification link.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setSignupSuccess(false);
+                  setIsSignUp(false);
+                  reset();
+                }}
+              >
+                Back to Sign In
+              </Button>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {isSignUp && (
               <div className="space-y-2">
@@ -224,6 +258,7 @@ export default function Auth() {
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
+          )}
 
           {!isSignUp && (
             <div className="mt-4 text-center">

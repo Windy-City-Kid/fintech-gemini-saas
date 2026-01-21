@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isRecovering: boolean; // Flag to disable dashboard redirects during password recovery
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -14,10 +15,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// VITE-COMPATIBLE EXPORT: Component as named export (stable for Fast Refresh)
+// Fast Refresh requires components to be exported in a stable way
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecovering, setIsRecovering] = useState(false); // Local state for recovery mode
   const previousUserRef = useRef<User | null>(null);
   const passwordRecoveryRef = useRef<boolean>(false);
 
@@ -64,6 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // If we're in recovery flow, immediately navigate to reset-password with hash preserved
           if (isRecoveryFlow) {
             passwordRecoveryRef.current = true;
+            setIsRecovering(true); // Set state to disable dashboard redirects
+            
+            // Set localStorage flag as backup guard
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem('is_resetting_password', 'true');
+            }
             
             // Log the password reset event
             if (session?.user && event === 'PASSWORD_RECOVERY') {
@@ -98,6 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // PRIORITY 2: Handle PASSWORD_RECOVERY event (if not caught by hash check above)
         if (event === 'PASSWORD_RECOVERY' && session?.user) {
           passwordRecoveryRef.current = true;
+          setIsRecovering(true); // Set state to disable dashboard redirects
+          
+          // Set localStorage flag as backup guard
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('is_resetting_password', 'true');
+          }
           
           // Log the password reset event
           await logSecurityEvent(session.user.id, 'password_reset', {
@@ -160,6 +176,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Reset password recovery flag after successful password update
                 if (passwordRecoveryRef.current) {
                   passwordRecoveryRef.current = false;
+                  setIsRecovering(false); // Clear recovery state to allow normal redirects
+                  
+                  // Cleanup localStorage flag
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.removeItem('is_resetting_password');
+                  }
                 }
                 break;
               default:
@@ -171,6 +193,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             previousUserRef.current = null;
             passwordRecoveryRef.current = false;
+            setIsRecovering(false); // Clear recovery state on sign out
+            
+            // Cleanup localStorage flag on sign out
+            if (typeof window !== 'undefined') {
+              window.localStorage.removeItem('is_resetting_password');
+            }
           }
         }
       }
@@ -188,17 +216,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    // FRONTEND SAFETY: Ensure we don't send null/undefined for required fields
+    // Verify client-side call - ensure it isn't sending 'null' for required fields like full_name or email
+    
+    // Validate email is not null or undefined
+    if (!email || email.trim() === '') {
+      return { error: new Error('Email is required') };
+    }
+    
+    // Validate password is not empty
+    if (!password || password.trim() === '') {
+      return { error: new Error('Password is required') };
+    }
+    
+    // FRONTEND SAFETY: Ensure full_name is either a valid string or completely omitted
+    // Only include full_name in metadata if it's actually provided and not empty
+    // Never send null, undefined, or empty string - this prevents database errors
+    const userMetadata: Record<string, string> = {};
+    if (fullName && typeof fullName === 'string' && fullName.trim() !== '') {
+      userMetadata.full_name = fullName.trim();
+    }
+    // If fullName is not provided or is empty, we don't include it in metadata at all
+    // This prevents undefined/null from being sent to the database
+    
+    // SUPABASE CONFIG: Explicitly set emailRedirectTo to window.location.origin + '/dashboard'
+    // This ensures Supabase redirects new users to the dashboard after email confirmation
+    const redirectUrl = window.location.origin + '/dashboard';
+    
+    // Build options object - only include data if we have valid metadata
+    // This ensures we never send empty objects or undefined values
+    const signUpOptions: {
+      emailRedirectTo: string;
+      data?: Record<string, string>;
+    } = {
+      emailRedirectTo: redirectUrl,
+    };
+    
+    // Only include data if we have at least one valid metadata field
+    // This prevents sending empty objects or undefined metadata
+    if (Object.keys(userMetadata).length > 0) {
+      signUpOptions.data = userMetadata;
+    }
+    // If userMetadata is empty, we don't include the data field at all
+    // This prevents Supabase from receiving undefined or empty metadata
     
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-        },
-      },
+      options: signUpOptions,
     });
     
     // Log account creation
@@ -233,7 +298,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/reset-password`;
+    // SUPABASE CONFIG: Explicitly set redirectTo to window.location.origin + '/reset-password'
+    // This ensures Supabase redirects to the reset page, not dashboard
+    const redirectUrl = window.location.origin + '/reset-password';
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
@@ -243,12 +310,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, session, loading, isRecovering, signUp, signIn, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
+// VITE-COMPATIBLE EXPORT: Hook as named export (stable for Fast Refresh)
+// Hooks should be exported separately from components to prevent HMR invalidation
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -256,3 +325,6 @@ export function useAuth() {
   }
   return context;
 }
+
+// Default export for backward compatibility (not recommended but prevents breaking changes)
+export default AuthProvider;

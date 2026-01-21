@@ -24,6 +24,8 @@ interface AIAdvisorContextType {
 
 const AIAdvisorContext = createContext<AIAdvisorContextType | null>(null);
 
+// VITE-COMPATIBLE EXPORT: Component as named export (stable for Fast Refresh)
+// Fast Refresh requires components to be exported in a stable way
 export function AIAdvisorProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const { planContext, isLoading: isPlanLoading } = usePlanContext();
@@ -72,6 +74,8 @@ export function AIAdvisorProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// VITE-COMPATIBLE EXPORT: Hook as named export (stable for Fast Refresh)
+// Hooks should be exported separately from components to prevent HMR invalidation
 export function useAIAdvisorContext() {
   const context = useContext(AIAdvisorContext);
   if (!context) {
@@ -79,3 +83,6 @@ export function useAIAdvisorContext() {
   }
   return context;
 }
+
+// Default export for backward compatibility (not recommended but prevents breaking changes)
+export default AIAdvisorProvider;

@@ -1,0 +1,20 @@
+- name: callLovableSync
+  description: Triggers Lovable sync via backend
+  method: POST
+  url: https://yourdomain.com/api/lovable/sync-event
+  headers:
+    Authorization: Bearer YOUR_API_KEY
+
+- name: createWPPost
+  description: Sends post to WordPress from Gemini
+  method: POST
+  url: https://yourwordpress.com/wp-json/lovable/insert-post
+  headers:
+    Authorization: Bearer YOUR_WP_TOKEN
+
+- name: logGeminiInteraction
+  description: Logs Gemini prompt & response for audit
+  method: POST
+  url: https://yourdomain.com/api/log/ai-prompt
+  headers:
+    Authorization: Bearer INTERNAL_API_KEY
