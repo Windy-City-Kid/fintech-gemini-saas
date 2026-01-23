@@ -1,0 +1,27 @@
+name: fintech-gemini-saas
+description: >
+  A Gemini-powered assistant for building and debugging Fintech SaaS platforms using Vibe/Lovable API and TypeScript tooling.
+
+tools:
+  - name: api-call-lovable
+    description: Send requests to the Lovable API via secure gateway
+    type: openapi
+    file: tools/lovable-openapi.yaml
+
+  - name: get-file
+    description: Read and retrieve source files or docs by path
+    type: file_retriever
+    file: tools/file_retriever.yaml
+
+  - name: prompt-history-audit
+    description: Store and retrieve prompt history and RAG logs
+    type: function
+    file: tools/prompt_logger.js
+
+knowledge:
+  - file: knowledge/fintech-docs.md
+    name: Fintech Gemini Docs
+    description: Internal documentation and architecture for Fintech SaaS system
+
+entrypoint:
+  default_tool: get-file

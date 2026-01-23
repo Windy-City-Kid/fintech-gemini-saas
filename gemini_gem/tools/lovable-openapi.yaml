@@ -1,0 +1,37 @@
+openapi: 3.0.0
+info:
+  title: Lovable API Gateway
+  description: Secure gateway for Lovable API requests
+  version: 1.0.0
+servers:
+  - url: https://yourdomain.com/api/lovable
+    description: Production API
+paths:
+  /sync-event:
+    post:
+      summary: Trigger Lovable sync event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: string
+                user_id:
+                  type: string
+                timestamp:
+                  type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  received:
+                    type: object

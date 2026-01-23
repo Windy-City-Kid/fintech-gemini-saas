@@ -1,0 +1,14 @@
+name: file_retriever
+description: Retrieve source files and documentation by path
+type: function
+parameters:
+  type: object
+  properties:
+    file_path:
+      type: string
+      description: Path to the file to retrieve (relative to project root)
+    max_lines:
+      type: number
+      description: Maximum number of lines to return (optional)
+  required:
+    - file_path
