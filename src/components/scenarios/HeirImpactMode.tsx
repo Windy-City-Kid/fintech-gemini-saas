@@ -228,7 +228,7 @@ export function HeirImpactMode({
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-xs">Heir's Current Age</Label>
+                <Label className="text-xs">Heir&apos;s Current Age</Label>
                 <Input
                   type="number"
                   value={heirAgeInput}
@@ -239,7 +239,7 @@ export function HeirImpactMode({
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs">Heir's Marginal Tax Rate</Label>
+                  <Label className="text-xs">Heir&apos;s Marginal Tax Rate</Label>
                   <Badge variant="outline" className="font-mono">
                     {heirRateInput.toFixed(0)}%
                   </Badge>

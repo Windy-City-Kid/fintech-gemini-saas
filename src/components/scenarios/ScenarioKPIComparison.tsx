@@ -117,7 +117,7 @@ export function ScenarioKPIComparison({
                     {/* Forecast Mode Toggle */}
                     <Select
                       value={s.forecast_mode || 'average'}
-                      onValueChange={(v) => onForecastModeChange(s.id, v as any)}
+                      onValueChange={(v) => onForecastModeChange(s.id, v as 'optimistic' | 'average' | 'pessimistic')}
                     >
                       <SelectTrigger className="h-6 text-xs w-24">
                         <SelectValue />

@@ -58,11 +58,23 @@ const COLORS = {
   savings: '#22d3ee',
 };
 
+interface WaterfallDataPoint {
+  name: string;
+  value: number;
+  displayValue: number;
+  start?: number;
+  end?: number;
+  type?: string;
+  color?: string;
+  rate?: number;
+  description?: string;
+}
+
 interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{
     value: number;
-    payload: any;
+    payload: WaterfallDataPoint;
   }>;
   label?: string;
 }

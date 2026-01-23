@@ -183,7 +183,7 @@ export function SuccessScoreReveal({ score, isCalculating }: SuccessScoreRevealP
           <div className="flex items-center gap-2 text-primary">
             <Sparkles className="h-4 w-4" />
             <span className="text-sm font-medium">
-              Let's make this plan 100% accurate
+              Let&apos;s make this plan 100% accurate
             </span>
           </div>
         </motion.div>

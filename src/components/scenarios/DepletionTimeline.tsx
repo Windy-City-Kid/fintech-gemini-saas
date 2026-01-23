@@ -76,9 +76,16 @@ export function DepletionTimeline({
   accountNames,
   accountColors = DEFAULT_COLORS,
 }: DepletionTimelineProps) {
+  interface DialogRow {
+    account: string;
+    balance: string;
+    withdrawal: string;
+    status: string;
+  }
+
   const [dialogData, setDialogData] = useState<{
     open: boolean;
-    data: any[];
+    data: DialogRow[];
     columns: { key: string; label: string }[];
     title: string;
   }>({ open: false, data: [], columns: [], title: '' });
@@ -106,8 +113,13 @@ export function DepletionTimeline({
     return { startingTotal, endingTotal, totalWithdrawn, depletionAges, avgMarginalRate };
   }, [yearlyData, accountNames]);
 
-  const handleBarClick = (data: any) => {
-    if (!data) return;
+  interface BarClickData {
+    age?: number;
+    [key: string]: unknown;
+  }
+
+  const handleBarClick = (data: BarClickData) => {
+    if (!data || typeof data.age !== 'number') return;
     
     const yearData = yearlyData.find(y => y.age === data.age);
     if (!yearData) return;
@@ -133,10 +145,17 @@ export function DepletionTimeline({
     });
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: Array<{ payload?: YearlyData; [key: string]: unknown }>;
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
     
-    const yearData = yearlyData.find(y => y.age === label);
+    const age = typeof label === 'number' ? label : (typeof label === 'string' ? parseInt(label, 10) : null);
+    const yearData = age !== null ? yearlyData.find(y => y.age === age) : null;
     if (!yearData) return null;
     
     return (

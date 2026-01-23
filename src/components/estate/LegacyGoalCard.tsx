@@ -65,7 +65,7 @@ export function LegacyGoalCard({
       </CardHeader>
       <CardContent className="p-6 space-y-4">
         <p className="text-sm text-muted-foreground">
-          Set a target amount you want to leave to your heirs. We'll track your progress and alert you if your plan falls short.
+          Set a target amount you want to leave to your heirs. We&apos;ll track your progress and alert you if your plan falls short.
         </p>
 
         <div className="flex gap-3">

@@ -43,7 +43,27 @@ export function RothConversionChart({ years }: RothConversionChartProps) {
     return `$${value.toFixed(0)}`;
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayloadItem {
+    payload?: {
+      age: number;
+      year: number;
+      conversion: number;
+      federalTax: number;
+      stateTax: number;
+      effectiveRate: number;
+      cumulativeConverted: number;
+      rothBalance: number;
+    };
+    [key: string]: unknown;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayloadItem[];
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
 
     const data = payload[0]?.payload;

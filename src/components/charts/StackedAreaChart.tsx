@@ -119,7 +119,7 @@ export function StackedAreaChart({
     }));
   }, [data]);
 
-  const handleClick = (data: any) => {
+  const handleClick = (data: { activePayload?: Array<{ payload?: DataPoint }> }) => {
     if (!enableDrillDown || !data?.activePayload?.[0]?.payload) return;
     setSelectedYear(data.activePayload[0].payload);
     setDialogOpen(true);

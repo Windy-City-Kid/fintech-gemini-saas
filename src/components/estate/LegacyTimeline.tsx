@@ -132,9 +132,13 @@ export function LegacyTimeline({
   }, [projections]);
 
   // Handle tooltip
-  const handleMouseMove = useCallback((data: any) => {
+  interface TooltipMouseData {
+    activePayload?: Array<{ payload?: AgeProjection }>;
+  }
+
+  const handleMouseMove = useCallback((data: TooltipMouseData) => {
     if (data?.activePayload?.[0]?.payload) {
-      const payload = data.activePayload[0].payload as AgeProjection;
+      const payload = data.activePayload[0].payload;
       setHoveredAge(payload.age);
       setHoveredData(payload);
     }
@@ -146,10 +150,15 @@ export function LegacyTimeline({
   }, []);
 
   // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.[0]) return null;
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: Array<{ payload?: AgeProjection; [key: string]: unknown }>;
+  }
+
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+    if (!active || !payload?.[0]?.payload) return null;
     
-    const data = payload[0].payload as AgeProjection;
+    const data = payload[0].payload;
     
     return (
       <div className="bg-popover border border-border rounded-lg shadow-lg p-4 min-w-64">

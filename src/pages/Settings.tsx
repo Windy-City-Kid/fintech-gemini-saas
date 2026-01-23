@@ -111,8 +111,9 @@ export default function Settings() {
 
       if (error) throw error;
       toast.success('Profile updated successfully');
-    } catch (error: any) {
-      toast.error('Failed to update profile', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Failed to update profile', { description: errorMessage });
     } finally {
       setSaving(false);
     }
@@ -147,8 +148,9 @@ export default function Settings() {
       } : null);
       
       toast.success('Family & legacy settings saved');
-    } catch (error: any) {
-      toast.error('Failed to save settings', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Failed to save settings', { description: errorMessage });
     } finally {
       setSavingFamily(false);
     }

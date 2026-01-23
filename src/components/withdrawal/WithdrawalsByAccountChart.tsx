@@ -232,7 +232,7 @@ export function WithdrawalsByAccountChart({
           <p className="text-xs text-muted-foreground">
             <strong>How to read:</strong> Each bar shows the total withdrawn that year, 
             colored by source account. RMDs are included in Tax-Deferred withdrawals. 
-            Red sections indicate gaps that couldn't be covered (adding to "Lifetime Debt").
+            Red sections indicate gaps that couldn&apos;t be covered (adding to &quot;Lifetime Debt&quot;).
           </p>
         </div>
       </CardContent>

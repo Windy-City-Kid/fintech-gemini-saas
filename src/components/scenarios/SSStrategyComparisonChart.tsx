@@ -76,14 +76,27 @@ export function SSStrategyComparisonChart({
     return `$${value.toFixed(0)}`;
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipEntry {
+    name: string;
+    value: number;
+    color?: string;
+    [key: string]: unknown;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipEntry[];
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
 
     return (
       <div className="bg-popover border border-border rounded-lg shadow-lg p-4 min-w-[220px]">
         <div className="font-semibold text-foreground mb-2">Age {label}</div>
         <div className="space-y-2">
-          {payload.map((entry: any) => (
+          {payload.map((entry: TooltipEntry) => (
             <div key={entry.name} className="flex justify-between items-center gap-4">
               <div className="flex items-center gap-2">
                 <div
@@ -106,9 +119,9 @@ export function SSStrategyComparisonChart({
           <div className="mt-3 pt-3 border-t border-border">
             <div className="text-xs text-muted-foreground">
               {(() => {
-                const values = payload.map((p: any) => ({ name: p.name, value: p.value }));
-                const winner = values.reduce((a: any, b: any) => a.value > b.value ? a : b);
-                return `${winner.name === 'custom' ? 'Your Strategy' : winner.name} leads by ${formatCurrency(winner.value - Math.min(...values.map((v: any) => v.value)))}`;
+                const values = payload.map((p: TooltipEntry) => ({ name: p.name, value: p.value }));
+                const winner = values.reduce((a, b) => a.value > b.value ? a : b);
+                return `${winner.name === 'custom' ? 'Your Strategy' : winner.name} leads by ${formatCurrency(winner.value - Math.min(...values.map((v) => v.value)))}`;
               })()}
             </div>
           </div>

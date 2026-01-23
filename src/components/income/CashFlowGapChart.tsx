@@ -20,10 +20,16 @@ const formatCurrency = (value: number) => {
   return `$${Math.round(value)}`;
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value?: number; [key: string]: unknown }>;
+  label?: string | number;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (!active || !payload || !payload.length) return null;
   
-  const value = payload[0].value;
+  const value = payload[0]?.value ?? 0;
   const isSurplus = value >= 0;
   
   return (

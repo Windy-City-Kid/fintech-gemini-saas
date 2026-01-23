@@ -57,7 +57,31 @@ export function RothConversionRoadmap({
   const totalConversion = years.reduce((sum, y) => sum + y.conversionAmount, 0);
   const totalTaxes = years.reduce((sum, y) => sum + y.taxBill, 0);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayloadItem {
+    payload?: {
+      age: number;
+      year: number;
+      conversion: number;
+      federalTax: number;
+      stateTax: number;
+      totalTax: number;
+      effectiveRate: number;
+      marginalRate: number;
+      rothBalance: number;
+      irmaaCliff: boolean;
+      irmaaSurcharge: number;
+      irmaaBracket: string;
+    };
+    [key: string]: unknown;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayloadItem[];
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
 
     const data = payload[0]?.payload;

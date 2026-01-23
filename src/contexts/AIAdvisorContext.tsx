@@ -22,7 +22,7 @@ interface AIAdvisorContextType {
   openWithChartContext: (chartContext: ChartContext) => void;
 }
 
-const AIAdvisorContext = createContext<AIAdvisorContextType | null>(null);
+export const AIAdvisorContext = createContext<AIAdvisorContextType | null>(null);
 
 // VITE-COMPATIBLE EXPORT: Component as named export (stable for Fast Refresh)
 // Fast Refresh requires components to be exported in a stable way

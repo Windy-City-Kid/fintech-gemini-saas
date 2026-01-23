@@ -1,0 +1,8 @@
+./src/components/scenarios/TaxAdjustedNetWorthChart.tsx:107:  const CustomTooltip = ({ active, payload, label }: any) => {
+./src/components/scenarios/RothConversionRoadmap.tsx:60:  const CustomTooltip = ({ active, payload, label }: any) => {
+./src/components/scenarios/RothLifetimeTaxChart.tsx:63:  const CustomTooltip = ({ active, payload, label }: any) => {
+./src/components/scenarios/RothConversionChart.tsx:46:  const CustomTooltip = ({ active, payload, label }: any) => {
+./src/components/scenarios/MedicalCostWatch.tsx:77:  const CustomTooltip = ({ active, payload }: any) => {
+./src/components/scenarios/SSStrategyComparisonChart.tsx:79:  const CustomTooltip = ({ active, payload, label }: any) => {
+./src/components/scenarios/RMDImpactChart.tsx:83:  const CustomTooltip = ({ active, payload, label }: any) => {
+./src/components/scenarios/LifetimeBenefitsChart.tsx:44:  const CustomTooltip = ({ active, payload }: any) => {

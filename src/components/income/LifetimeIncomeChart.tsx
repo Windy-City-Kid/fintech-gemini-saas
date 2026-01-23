@@ -14,7 +14,7 @@ interface LifetimeIncomeChartProps {
   annualDebt: number;
   estimatedTaxes: number;
   rmdProjections?: { age: number; amount: number }[];
-  baselineData?: Record<string, any>[];
+  baselineData?: Array<Record<string, string | number | boolean | null | undefined>>;
   showDelta?: boolean;
 }
 
@@ -44,12 +44,25 @@ const formatCurrency = (value: number) => {
   return `$${Math.round(value)}`;
 };
 
+interface TooltipPayloadItem {
+  dataKey?: string;
+  value?: number;
+  payload?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface ChartDataPoint {
+  age: number;
+  year: number;
+  [key: string]: number | string;
+}
+
 interface EnhancedTooltipProps {
   active?: boolean;
-  payload?: any[];
-  label?: any;
+  payload?: TooltipPayloadItem[];
+  label?: string | number;
   showDelta?: boolean;
-  baselineData?: Record<string, any>[];
+  baselineData?: Array<Record<string, string | number | boolean | null | undefined>>;
 }
 
 const EnhancedIncomeTooltip = ({ active, payload, label, showDelta, baselineData }: EnhancedTooltipProps) => {
@@ -58,9 +71,9 @@ const EnhancedIncomeTooltip = ({ active, payload, label, showDelta, baselineData
   const data = payload[0]?.payload;
   if (!data) return null;
   
-  const incomeItems = payload.filter((p: any) => p.dataKey !== 'expenseLine' && p.value > 0);
-  const total = incomeItems.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0);
-  const expenseLine = payload.find((p: any) => p.dataKey === 'expenseLine');
+  const incomeItems = payload.filter((p: TooltipPayloadItem) => p.dataKey !== 'expenseLine' && (p.value ?? 0) > 0);
+  const total = incomeItems.reduce((sum: number, entry: TooltipPayloadItem) => sum + (entry.value ?? 0), 0);
+  const expenseLine = payload.find((p: TooltipPayloadItem) => p.dataKey === 'expenseLine');
   const gap = expenseLine ? total - expenseLine.value : 0;
   
   // Find baseline data for delta comparison
@@ -101,9 +114,11 @@ const EnhancedIncomeTooltip = ({ active, payload, label, showDelta, baselineData
       {/* Income Breakdown */}
       {hasData && (
         <div className="space-y-2">
-          {incomeItems.map((entry: any, index: number) => {
-            const baselineValue = baseline?.[entry.dataKey];
-            const delta = showDelta && baselineValue !== undefined ? entry.value - baselineValue : null;
+          {incomeItems.map((entry: TooltipPayloadItem, index: number) => {
+            const baselineValue = entry.dataKey ? baseline?.[entry.dataKey] : undefined;
+            const entryValue = entry.value ?? 0;
+            const baselineNum = typeof baselineValue === 'number' ? baselineValue : undefined;
+            const delta = showDelta && baselineNum !== undefined ? entryValue - baselineNum : null;
             
             return (
               <div key={index} className="flex items-center justify-between gap-3 group">
@@ -112,10 +127,10 @@ const EnhancedIncomeTooltip = ({ active, payload, label, showDelta, baselineData
                     className="w-3 h-3 rounded-sm flex-shrink-0 transition-transform group-hover:scale-110"
                     style={{ backgroundColor: entry.color }}
                   />
-                  <span className="truncate text-sm">{entry.name}</span>
+                  <span className="truncate text-sm">{typeof entry.name === 'string' ? entry.name : entry.dataKey || ''}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="font-mono font-medium">{formatCurrency(entry.value)}</span>
+                  <span className="font-mono font-medium">{formatCurrency(entryValue)}</span>
                   {delta !== null && delta !== 0 && (
                     <span className={`text-xs px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}`}>
                       {delta > 0 ? '+' : ''}{formatCurrency(delta)}
@@ -175,12 +190,12 @@ export function LifetimeIncomeChart({
   const { hoveredAge, handleMouseMove, handleMouseLeave, isSourceChart } = useSyncedChartHover(chartId);
   
   const chartData = useMemo(() => {
-    const data: Record<string, any>[] = [];
+    const data: ChartDataPoint[] = [];
     const currentYear = new Date().getFullYear();
     
     for (let age = currentAge; age <= 100; age += 2) {
       const year = currentYear + (age - currentAge);
-      const point: Record<string, any> = {
+      const point: ChartDataPoint = {
         age,
         year,
         expenseLine: annualExpenses + annualDebt + estimatedTaxes,

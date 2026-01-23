@@ -45,7 +45,7 @@ export function AssetTransferSummary({
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p>When you pass away, your heirs receive a "step-up" in cost basis to the current market value, eliminating capital gains tax on appreciation during your lifetime.</p>
+                  <p>When you pass away, your heirs receive a &quot;step-up&quot; in cost basis to the current market value, eliminating capital gains tax on appreciation during your lifetime.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

@@ -15,6 +15,20 @@ interface SyncedChartWrapperProps {
   onSyncedHover?: (age: number | null) => void;
 }
 
+interface ChartMouseEventData {
+  activePayload?: Array<{
+    payload?: Record<string, unknown>;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+
+interface ChartComponentProps {
+  onMouseMove?: (data: ChartMouseEventData, e: React.MouseEvent) => void;
+  onMouseLeave?: () => void;
+  [key: string]: unknown;
+}
+
 export function SyncedChartWrapper({ 
   children, 
   chartId: customChartId,
@@ -35,15 +49,16 @@ export function SyncedChartWrapper({
       onMouseLeave={handleMouseLeave}
     >
       {React.Children.map(children, child => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child as React.ReactElement<any>, {
-            onMouseMove: (data: any, e: React.MouseEvent) => {
+        if (React.isValidElement<ChartComponentProps>(child)) {
+          const childProps = child.props as ChartComponentProps;
+          return React.cloneElement(child, {
+            onMouseMove: (data: ChartMouseEventData, e: React.MouseEvent) => {
               handleMouseMove(data, e);
-              (child.props as any).onMouseMove?.(data, e);
+              childProps.onMouseMove?.(data, e);
             },
             onMouseLeave: () => {
               handleMouseLeave();
-              (child.props as any).onMouseLeave?.();
+              childProps.onMouseLeave?.();
             },
           });
         }

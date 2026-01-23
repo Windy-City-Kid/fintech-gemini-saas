@@ -102,8 +102,9 @@ export default function Auth() {
         }
         // Sign-in success - useEffect will handle redirect
       }
-    } catch (error: any) {
-      toast.error('Authentication failed', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Authentication failed', { description: errorMessage });
       setSignupSuccess(false);
     } finally {
       setIsLoading(false);

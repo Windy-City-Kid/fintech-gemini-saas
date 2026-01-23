@@ -52,7 +52,7 @@ export function MonteCarloChart({ result, retirementAge, loading }: MonteCarloCh
   if (!result) {
     return (
       <div className="h-80 flex items-center justify-center text-muted-foreground">
-        Click "Run Simulation" to generate Monte Carlo projections
+        Click &quot;Run Simulation&quot; to generate Monte Carlo projections
       </div>
     );
   }

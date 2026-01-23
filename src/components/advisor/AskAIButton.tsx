@@ -1,7 +1,8 @@
+import { useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sparkles } from 'lucide-react';
-import { useAIAdvisorContext } from '@/contexts/AIAdvisorContext';
+import { AIAdvisorContext } from '@/contexts/AIAdvisorContext';
 
 interface AskAIButtonProps {
   chartTitle: string;
@@ -12,6 +13,12 @@ interface AskAIButtonProps {
   size?: 'default' | 'sm' | 'icon';
 }
 
+interface ChartContext {
+  chartTitle: string;
+  chartType: string;
+  chartData: unknown;
+}
+
 export function AskAIButton({
   chartTitle,
   chartType,
@@ -20,23 +27,22 @@ export function AskAIButton({
   variant = 'ghost',
   size = 'sm',
 }: AskAIButtonProps) {
-  let context: ReturnType<typeof useAIAdvisorContext> | null = null;
-  
-  try {
-    context = useAIAdvisorContext();
-  } catch {
-    // Context not available - button will be disabled
-  }
+  // Hooks must be called unconditionally at the top level
+  // Using useContext directly to get nullable context (doesn't throw)
+  const context = useContext(AIAdvisorContext);
 
   const handleClick = () => {
     if (context?.openWithChartContext) {
-      context.openWithChartContext({
+      const chartContext: ChartContext = {
         chartTitle,
         chartType,
         chartData,
-      });
+      };
+      context.openWithChartContext(chartContext);
     }
   };
+
+  const isDisabled = !context?.openWithChartContext;
 
   return (
     <TooltipProvider>
@@ -47,7 +53,7 @@ export function AskAIButton({
             size={size}
             onClick={handleClick}
             className={className}
-            disabled={!context}
+            disabled={isDisabled}
           >
             <Sparkles className="h-4 w-4 mr-1" />
             Ask AI

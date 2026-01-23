@@ -205,10 +205,10 @@ export function generateGuardrailNudge(
       maximumFractionDigits: 0,
     }).format(extraAmount);
     
-    let message = `Good news! Your portfolio is ahead of schedule. You have ${formattedAmount} extra in \"guilt-free\" spending this month.`;
+    let message = `Good news! Your portfolio is ahead of schedule. You have ${formattedAmount} extra in "guilt-free" spending this month.`;
     
     if (legacyGoal || bucketListEnabled) {
-      message += ` Would you like to earmark this for a ${legacyGoal ? '\"Legacy Goal\"' : ''}${legacyGoal && bucketListEnabled ? ' or a ' : ''}${bucketListEnabled ? '\"Bucket List\" trip' : ''}?`;
+      message += ` Would you like to earmark this for a ${legacyGoal ? '"Legacy Goal"' : ''}${legacyGoal && bucketListEnabled ? ' or a ' : ''}${bucketListEnabled ? '"Bucket List" trip' : ''}?`;
     }
     
     return message;

@@ -279,7 +279,7 @@ export function StateTaxComparisonMatrix({
             <div>
               <p className="font-medium text-chart-2">States with $0 Social Security Tax</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {noSSTaxStates.length} states don't tax Social Security benefits:{' '}
+                {noSSTaxStates.length} states don&apos;t tax Social Security benefits:{' '}
                 <span className="font-medium">
                   {noSSTaxStates.slice(0, 8).map(s => s.state_code).join(', ')}
                   {noSSTaxStates.length > 8 && ` +${noSSTaxStates.length - 8} more`}

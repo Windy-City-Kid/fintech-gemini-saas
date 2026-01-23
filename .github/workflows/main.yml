@@ -35,3 +35,6 @@ jobs:
     - name: ✅ Lint Frontend
       run: |
         npm run lint || echo "No frontend linter configured"
+
+    - name: ✅ TypeScript Check
+      run: tsc --noEmit

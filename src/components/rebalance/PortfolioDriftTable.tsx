@@ -117,7 +117,7 @@ export function PortfolioDriftTable({
             <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
               <p className="text-sm text-destructive font-medium">
                 ⚠️ One or more asset classes have drifted more than 5% from target. 
-                Click "Calculate Rebalance Trades" to see recommended actions.
+                Click &quot;Calculate Rebalance Trades&quot; to see recommended actions.
               </p>
             </div>
           )}

@@ -87,7 +87,13 @@ export function CumulativeTaxSavingsChart({
     ? chartData[chartData.length - 1].savings 
     : 0;
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: Array<{ payload?: { age: number; baseline: number; optimized: number; savings: number }; [key: string]: unknown }>;
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
 
     const data = payload[0]?.payload;

@@ -60,7 +60,26 @@ export function RothLifetimeTaxChart({
     return `$${value.toFixed(0)}`;
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayloadItem {
+    payload?: {
+      name: string;
+      conversionTax: number;
+      rmdTax: number;
+      total: number;
+      savings?: number;
+      savingsPercent?: number;
+      type: string;
+    };
+    [key: string]: unknown;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayloadItem[];
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
 
     const data = payload[0]?.payload;

@@ -95,7 +95,7 @@ export function usePortfolioData() {
         isLoading: false,
         error: null,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching portfolio data:', error);
       setData(prev => ({
         ...prev,

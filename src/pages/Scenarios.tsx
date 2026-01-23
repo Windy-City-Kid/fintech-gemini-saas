@@ -165,8 +165,9 @@ export default function Scenarios() {
       if (error) throw error;
       toast.success('Scenario saved successfully');
       refreshScenarios();
-    } catch (error: any) {
-      toast.error('Failed to save scenario', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Failed to save scenario', { description: errorMessage });
     } finally {
       setSaving(false);
     }
@@ -435,7 +436,7 @@ export default function Scenarios() {
           monthlySpending={formValues.monthly_retirement_spending}
           annualContribution={formValues.annual_contribution}
           currentSavings={currentSavings}
-          socialSecurityIncome={(activeScenario as any)?.social_security_income || 24000}
+          socialSecurityIncome={24000}
           inflationRate={liveInflation}
           medicalInflation={liveMedicalInflation}
           expectedReturn={liveExpectedReturn}
@@ -470,7 +471,7 @@ export default function Scenarios() {
           currentAge={formValues.current_age}
           retirementAge={formValues.retirement_age}
           monthlySpending={formValues.monthly_retirement_spending}
-          socialSecurityIncome={(activeScenario as any)?.social_security_income || 24000}
+          socialSecurityIncome={24000}
           simulationResults={simulationResult?.percentiles ? [
             ...Array.from({ length: 100 - formValues.current_age + 1 }, (_, i) => ({
               age: formValues.current_age + i,

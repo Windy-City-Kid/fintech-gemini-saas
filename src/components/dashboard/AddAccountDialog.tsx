@@ -56,8 +56,9 @@ export function AddAccountDialog({ open, onOpenChange, onSuccess }: AddAccountDi
       toast.success('Account added successfully');
       reset();
       onSuccess();
-    } catch (error: any) {
-      toast.error('Failed to add account', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Failed to add account', { description: errorMessage });
     } finally {
       setIsLoading(false);
     }

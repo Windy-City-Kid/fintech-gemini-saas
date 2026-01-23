@@ -58,9 +58,15 @@ export function HealthcareExplorer({
   isMarried = true,
   medicalInflation = MEDICAL_INFLATION_HISTORICAL,
 }: HealthcareExplorerProps) {
+  interface DialogRow {
+    category: string;
+    amount: string;
+    percent: string;
+  }
+
   const [dialogData, setDialogData] = useState<{
     open: boolean;
-    data: any[];
+    data: DialogRow[];
     columns: { key: string; label: string }[];
     title: string;
   }>({ open: false, data: [], columns: [], title: '' });
@@ -89,10 +95,14 @@ export function HealthcareExplorer({
     return { totalLifetimeCost, avgAnnualCost, peakCost, peakAge, totalIRMAA, eolCosts };
   }, [projections]);
 
-  const handleChartClick = (data: any) => {
+  interface ChartClickData {
+    activePayload?: Array<{ payload?: HealthcareProjectionPoint }>;
+  }
+
+  const handleChartClick = (data: ChartClickData) => {
     if (!data?.activePayload?.[0]?.payload) return;
     
-    const point: HealthcareProjectionPoint = data.activePayload[0].payload;
+    const point = data.activePayload[0].payload;
     
     setDialogData({
       open: true,
@@ -132,10 +142,16 @@ export function HealthcareExplorer({
     });
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: Array<{ payload?: HealthcareProjectionPoint; [key: string]: unknown }>;
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
     
-    const data: HealthcareProjectionPoint = payload[0]?.payload;
+    const data = payload[0]?.payload;
     if (!data) return null;
     
     return (

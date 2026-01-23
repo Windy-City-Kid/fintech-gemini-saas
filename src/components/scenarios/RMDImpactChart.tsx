@@ -80,7 +80,25 @@ export function RMDImpactChart({ years }: RMDImpactChartProps) {
     return `$${value.toFixed(0)}`;
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayloadItem {
+    payload?: {
+      age: number;
+      year: number;
+      rmdBaseline: number;
+      rmdWithConversion: number;
+      reduction: number;
+      reductionPercent: number;
+    };
+    [key: string]: unknown;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayloadItem[];
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
 
     const data = payload[0]?.payload;

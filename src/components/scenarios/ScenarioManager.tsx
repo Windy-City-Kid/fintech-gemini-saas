@@ -47,7 +47,7 @@ interface ScenarioManagerProps {
   scenarios: Scenario[];
   selectedIds: string[];
   maxScenarios: number;
-  onCreateScenario: (name: string, copyFromId?: string) => Promise<any>;
+  onCreateScenario: (name: string, copyFromId?: string) => Promise<Scenario | null>;
   onDeleteScenario: (id: string) => void;
   onSetBaseline: (id: string) => void;
   onToggleSelection: (id: string) => void;
@@ -120,7 +120,7 @@ export function ScenarioManager({
             <DialogHeader>
               <DialogTitle>Create New Scenario</DialogTitle>
               <DialogDescription>
-                Create a new "what-if" scenario to explore different retirement strategies.
+                Create a new &quot;what-if&quot; scenario to explore different retirement strategies.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">

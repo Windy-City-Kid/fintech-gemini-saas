@@ -76,7 +76,7 @@ export function useScenarios() {
       if (baseline && selectedIds.length === 0) {
         setSelectedIds([baseline.id]);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching scenarios:', error);
       toast.error('Failed to load scenarios');
     } finally {
@@ -130,8 +130,9 @@ export function useScenarios() {
       toast.success('Scenario created');
       await fetchScenarios();
       return data;
-    } catch (error: any) {
-      toast.error('Failed to create scenario', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Failed to create scenario', { description: errorMessage });
       return null;
     }
   };
@@ -157,8 +158,9 @@ export function useScenarios() {
       toast.success('Scenario deleted');
       setSelectedIds(prev => prev.filter(sId => sId !== id));
       await fetchScenarios();
-    } catch (error: any) {
-      toast.error('Failed to delete scenario', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Failed to delete scenario', { description: errorMessage });
     }
   };
 
@@ -183,8 +185,9 @@ export function useScenarios() {
       
       toast.success('Baseline updated');
       await fetchScenarios();
-    } catch (error: any) {
-      toast.error('Failed to update baseline', { description: error.message });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error('Failed to update baseline', { description: errorMessage });
     }
   };
 
@@ -204,7 +207,8 @@ export function useScenarios() {
       setScenarios(prev => prev.map(s => 
         s.id === id ? { ...s, forecast_mode: mode } : s
       ));
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Failed to update forecast mode:', error);
       toast.error('Failed to update forecast mode');
     }
   };
@@ -234,7 +238,7 @@ export function useScenarios() {
           total_lifetime_taxes: lifetimeTaxes,
         } : s
       ));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to cache results:', error);
     }
   };

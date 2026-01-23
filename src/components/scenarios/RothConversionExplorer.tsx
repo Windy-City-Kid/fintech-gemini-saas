@@ -177,7 +177,7 @@ export function RothConversionExplorer() {
               <span className="text-green-600 font-bold">
                 spendable wealth by {formatCurrency(strategy.spendableWealthIncrease)}
               </span>{' '}
-              and reduce your heirs' future tax burden by{' '}
+              and reduce your heirs&apos; future tax burden by{' '}
               <span className="text-emerald-600 font-bold">
                 {strategy.heirsTaxReductionPercent.toFixed(0)}%
               </span>
@@ -306,7 +306,7 @@ export function RothConversionExplorer() {
                 <Label className="text-xs">Filing Status</Label>
                 <Select
                   value={inputs.filingStatus}
-                  onValueChange={(v) => updateInput('filingStatus', v as any)}
+                  onValueChange={(v) => updateInput('filingStatus', v as 'single' | 'married_filing_jointly')}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue />

@@ -21,10 +21,33 @@ export interface TooltipCategory {
   baselineValue?: number;
 }
 
+interface TooltipData {
+  categories: TooltipCategory[];
+  total: number;
+  age?: number;
+  year?: number;
+}
+
+// Recharts tooltip payload item structure
+interface TooltipPayloadData {
+  age?: number;
+  year?: number;
+  [key: string]: number | string | undefined;
+}
+
+interface TooltipPayloadItem {
+  dataKey?: string;
+  value?: number;
+  name?: string;
+  color?: string;
+  fill?: string;
+  payload?: TooltipPayloadData;
+}
+
 export interface EnhancedTooltipProps {
   active?: boolean;
-  payload?: any[];
-  label?: any;
+  payload?: TooltipPayloadItem[];
+  label?: string | number;
   
   // Custom data
   age?: number;
@@ -61,8 +84,15 @@ export function EnhancedChartTooltip({
   formatValue = defaultFormat,
 }: EnhancedTooltipProps) {
   // Extract data from payload if not provided directly
-  const tooltipData = useMemo(() => {
-    if (categories) return { categories, total, age, year };
+  const tooltipData = useMemo((): TooltipData | null => {
+    if (categories) {
+      return { 
+        categories, 
+        total: total ?? 0, 
+        age, 
+        year 
+      };
+    }
     
     if (!payload?.length) return null;
     
@@ -71,22 +101,29 @@ export function EnhancedChartTooltip({
     
     // Build categories from payload
     const cats: TooltipCategory[] = payload
-      .filter((p: any) => p.dataKey && p.value !== undefined && p.dataKey !== 'expenseLine')
-      .map((p: any) => ({
-        key: p.dataKey,
-        label: p.name || p.dataKey,
-        value: Math.abs(p.value || 0),
-        color: p.color || p.fill || 'hsl(var(--primary))',
-        baselineValue: data[`baseline_${p.dataKey}`],
-      }));
+      .filter((p: TooltipPayloadItem) => p.dataKey && p.value !== undefined && p.dataKey !== 'expenseLine')
+      .map((p: TooltipPayloadItem) => {
+        const baselineKey = `baseline_${p.dataKey}`;
+        const baselineValue = data[baselineKey];
+        return {
+          key: p.dataKey!,
+          label: p.name || p.dataKey || '',
+          value: Math.abs(p.value || 0),
+          color: p.color || p.fill || 'hsl(var(--primary))',
+          baselineValue: typeof baselineValue === 'number' ? baselineValue : undefined,
+        };
+      });
     
     const tot = cats.reduce((sum, c) => sum + c.value, 0);
+    
+    const resultAge = typeof data.age === 'number' ? data.age : (typeof label === 'number' ? label : undefined);
+    const resultYear = typeof data.year === 'number' ? data.year : undefined;
     
     return {
       categories: cats,
       total: tot,
-      age: data.age || label,
-      year: data.year,
+      age: resultAge,
+      year: resultYear,
     };
   }, [payload, categories, total, age, year, label]);
 
@@ -279,7 +316,13 @@ export function SyncedCrosshair({
 /**
  * Custom Cursor Component for snapping behavior
  */
-export function SnapCursor({ points, width, height }: any) {
+interface SnapCursorProps {
+  points?: Array<{ x: number; y: number }>;
+  width: number;
+  height: number;
+}
+
+export function SnapCursor({ points, width, height }: SnapCursorProps) {
   if (!points || !points.length) return null;
   
   const { x } = points[0];

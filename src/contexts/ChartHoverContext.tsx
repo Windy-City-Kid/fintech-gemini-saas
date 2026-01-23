@@ -100,7 +100,11 @@ export function useSyncedChartHover(chartId: string) {
     return () => unregisterChart(chartId);
   }, [chartId, registerChart, unregisterChart]);
 
-  const handleMouseMove = useCallback((data: any, e?: React.MouseEvent) => {
+  interface ChartMouseEventData {
+    activePayload?: Array<{ payload: { age?: number; year?: number; [key: string]: unknown } }> | null;
+  }
+
+  const handleMouseMove = useCallback((data: ChartMouseEventData, e?: React.MouseEvent) => {
     if (data?.activePayload?.[0]?.payload) {
       const payload = data.activePayload[0].payload;
       setHover({

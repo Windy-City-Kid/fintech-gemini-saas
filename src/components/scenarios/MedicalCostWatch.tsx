@@ -74,8 +74,24 @@ export function MedicalCostWatch({
     isHigh: p.isHighBracket,
   }));
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.[0]) return null;
+  interface TooltipPayloadItem {
+    payload?: {
+      age: number;
+      premium: number;
+      surcharge: number;
+      bracket: string;
+      isHigh: boolean;
+    };
+    [key: string]: unknown;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayloadItem[];
+  }
+
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+    if (!active || !payload?.[0]?.payload) return null;
     const data = payload[0].payload;
     
     return (

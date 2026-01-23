@@ -30,7 +30,8 @@ import {
   HealthCondition,
   MedicareChoice,
 } from '@/lib/medicareCalculator';
-import { useAIAdvisorContext } from '@/contexts/AIAdvisorContext';
+import { useContext } from 'react';
+import { AIAdvisorContext } from '@/contexts/AIAdvisorContext';
 
 interface HealthcareCostChartProps {
   currentAge: number;
@@ -154,12 +155,8 @@ export function HealthcareCostChart({
   const [dialogOpen, setDialogOpen] = useState(false);
   
   // AI Advisor context for "Ask AI" functionality
-  let aiAdvisorContext: ReturnType<typeof useAIAdvisorContext> | null = null;
-  try {
-    aiAdvisorContext = useAIAdvisorContext();
-  } catch {
-    // Context not available (component used outside DashboardLayout)
-  }
+  // Using useContext directly to get nullable context (doesn't throw)
+  const aiAdvisorContext = useContext(AIAdvisorContext);
 
   const projections = useMemo(() => {
     return generateHealthcareProjection(
@@ -199,7 +196,11 @@ export function HealthcareCostChart({
   }, [projections]);
 
   // Handle chart click
-  const handleClick = (data: any) => {
+  interface ChartClickData {
+    activePayload?: Array<{ payload?: HealthcareProjectionPoint }>;
+  }
+
+  const handleClick = (data: ChartClickData) => {
     if (!data?.activePayload?.[0]?.payload) return;
     setSelectedPoint(data.activePayload[0].payload);
     setDialogOpen(true);

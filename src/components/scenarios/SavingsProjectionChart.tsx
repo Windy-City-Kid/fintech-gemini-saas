@@ -35,11 +35,20 @@ const formatCurrency = (value: number) => {
   return `$${value.toFixed(0)}`;
 };
 
+interface ChartDataPoint {
+  age: number;
+  balance: number;
+  contribution: number;
+  withdrawal: number;
+  growth: number;
+  isRetired: boolean;
+}
+
 interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{
     value: number;
-    payload: any;
+    payload: ChartDataPoint;
   }>;
   label?: number;
   retirementAge: number;
@@ -93,7 +102,7 @@ export function SavingsProjectionChart({
   inflationRate = 2.5,
   simulationMedian,
 }: SavingsProjectionChartProps) {
-  const [selectedData, setSelectedData] = useState<any>(null);
+  const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const chartData = useMemo(() => {
@@ -139,7 +148,11 @@ export function SavingsProjectionChart({
     return data.filter((_, i) => i % 5 === 0 || i === data.length - 1);
   }, [currentAge, retirementAge, currentSavings, annualContribution, monthlySpending, expectedReturn, inflationRate, simulationMedian]);
 
-  const handleClick = (data: any) => {
+  interface ChartClickData {
+    activePayload?: Array<{ payload: ChartDataPoint }>;
+  }
+
+  const handleClick = (data: ChartClickData) => {
     if (data?.activePayload?.[0]?.payload) {
       setSelectedData(data.activePayload[0].payload);
       setDialogOpen(true);

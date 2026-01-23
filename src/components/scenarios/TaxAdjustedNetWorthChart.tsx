@@ -104,7 +104,26 @@ export function TaxAdjustedNetWorthChart({
     ? lastDataPoint.totalNominal - lastDataPoint.totalTaxAdjusted 
     : 0;
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayloadItem {
+    payload?: {
+      age: number;
+      year: number;
+      rothBalance: number;
+      preTaxBalance: number;
+      taxAdjustedPreTax: number;
+      totalNominal: number;
+      totalTaxAdjusted: number;
+    };
+    [key: string]: unknown;
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean;
+    payload?: TooltipPayloadItem[];
+    label?: string | number;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload?.length) return null;
 
     const data = payload[0]?.payload;
@@ -178,7 +197,7 @@ export function TaxAdjustedNetWorthChart({
                   <p className="text-xs">
                     Tax-adjusted values discount pre-tax account balances by their 
                     estimated future tax rate ({(futureTaxRate * 100).toFixed(0)}%) 
-                    to show "True Spendable Wealth"
+                    to show &quot;True Spendable Wealth&quot;
                   </p>
                 </TooltipContent>
               </UITooltip>

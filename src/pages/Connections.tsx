@@ -43,7 +43,7 @@ export default function Connections() {
           <CardContent className="py-8 text-center">
             <AlertCircle className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
-              Click "Link Account" above to connect your financial institutions.
+              Click &quot;Link Account&quot; above to connect your financial institutions.
             </p>
           </CardContent>
         </Card>

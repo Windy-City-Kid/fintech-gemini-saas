@@ -3,7 +3,7 @@
  * Stores and retrieves prompt history and RAG logs for audit purposes
  */
 
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 /**
  * Log a prompt and response interaction
@@ -51,7 +51,54 @@ function getPromptHistory({ user_id, limit = 50 }) {
   };
 }
 
-module.exports = {
+export {
   logPromptInteraction,
   getPromptHistory,
 };
+
+// CLI interface for direct execution
+if (import.meta.url === `file://${process.argv[1]}`) {
+  // Read from stdin
+  let inputData = '';
+  process.stdin.setEncoding('utf8');
+  
+  process.stdin.on('data', (chunk) => {
+    inputData += chunk;
+  });
+  
+  process.stdin.on('end', () => {
+    try {
+      const data = JSON.parse(inputData);
+      
+      // Handle promptHistory array format
+      if (data.promptHistory && Array.isArray(data.promptHistory)) {
+        const userMessage = data.promptHistory.find(m => m.role === 'user');
+        const assistantMessage = data.promptHistory.find(m => m.role === 'assistant');
+        
+        if (userMessage && assistantMessage) {
+          const result = logPromptInteraction({
+            user_id: data.user_id || 'cli-user',
+            prompt: userMessage.content,
+            response: assistantMessage.content,
+            timestamp: data.timestamp,
+          });
+          
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.error('Error: promptHistory must contain both user and assistant messages');
+          process.exit(1);
+        }
+      } else if (data.user_id && data.prompt && data.response) {
+        // Handle direct function call format
+        const result = logPromptInteraction(data);
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.error('Error: Invalid input format. Expected promptHistory array or {user_id, prompt, response}');
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('Error parsing JSON:', error.message);
+      process.exit(1);
+    }
+  });
+}

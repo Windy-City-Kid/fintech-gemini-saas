@@ -57,9 +57,14 @@ export function ScenarioComparisonChart({
 
     if (maxLength === 0) return [];
 
-    const data = [];
+    interface ChartDataPoint {
+      age: number;
+      [key: string]: number | string;
+    }
+
+    const data: ChartDataPoint[] = [];
     for (let i = 0; i < maxLength; i++) {
-      const point: Record<string, any> = {
+      const point: ChartDataPoint = {
         age: currentAge + i,
       };
 
@@ -151,9 +156,11 @@ export function ScenarioComparisonChart({
               width={60}
             />
             <Tooltip
-              formatter={(value: number, name: string, props: any) => {
+              formatter={(value: number, name: string, props: { payload?: ChartDataPoint }) => {
+                // eslint-disable-next-line react/prop-types
                 const idx = parseInt(name.split('_')[1]);
-                const scenarioName = props.payload[`name_${idx}`] || `Scenario ${idx + 1}`;
+                // eslint-disable-next-line react/prop-types
+                const scenarioName = props.payload ? (props.payload[`name_${idx}`] as string) || `Scenario ${idx + 1}` : `Scenario ${idx + 1}`;
                 return [formatCurrency(value), scenarioName];
               }}
               labelFormatter={(age) => `Age ${age}`}

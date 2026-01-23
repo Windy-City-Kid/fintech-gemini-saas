@@ -28,10 +28,19 @@ const COLORS = {
   unfundedGap: '#dc2626', // Red - unfunded gaps (lifetime debt)
 };
 
+interface GapTooltipPayloadItem {
+  dataKey?: string;
+  value?: number;
+  payload?: AnnualCashFlowSummary;
+  name?: string;
+  color?: string;
+  [key: string]: unknown;
+}
+
 interface EnhancedGapTooltipProps {
   active?: boolean;
-  payload?: any[];
-  label?: any;
+  payload?: GapTooltipPayloadItem[];
+  label?: string | number;
   showDelta?: boolean;
   baselineData?: AnnualCashFlowSummary[];
 }

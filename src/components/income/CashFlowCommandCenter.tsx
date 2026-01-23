@@ -290,7 +290,7 @@ export function CashFlowCommandCenter({
               </div>
               
               <p className="text-xs text-muted-foreground">
-                If all savings are exhausted, the remaining gap becomes "Lifetime Debt."
+                If all savings are exhausted, the remaining gap becomes &quot;Lifetime Debt.&quot;
               </p>
             </div>
           </div>

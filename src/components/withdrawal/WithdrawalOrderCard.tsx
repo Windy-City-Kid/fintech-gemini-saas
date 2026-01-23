@@ -131,7 +131,7 @@ export function WithdrawalOrderCard({
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <p>
-                  When income doesn't cover expenses, the engine withdraws from accounts 
+                  When income doesn&apos;t cover expenses, the engine withdraws from accounts 
                   in this order. Within each category, lowest-return accounts are used first.
                 </p>
               </TooltipContent>
@@ -286,8 +286,8 @@ export function WithdrawalOrderCard({
         {accounts.some(a => a.excludeFromWithdrawals) && (
           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              <strong>Note:</strong> Excluded accounts won't be touched during automated withdrawals. 
-              If other funds are exhausted, this may result in "Lifetime Debt" rather than 
+              <strong>Note:</strong> Excluded accounts won&apos;t be touched during automated withdrawals. 
+              If other funds are exhausted, this may result in &quot;Lifetime Debt&quot; rather than 
               accessing these accounts.
             </p>
           </div>

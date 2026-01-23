@@ -90,7 +90,16 @@ export function ExpenseProjectionChart({
   propertyTaxRate = 1.1,
   homeValue = 500000,
 }: ExpenseProjectionChartProps) {
-  const [selectedData, setSelectedData] = useState<any>(null);
+  interface ExpenseDataPoint {
+    age: number;
+    medical: number;
+    housing: number;
+    propertyTax: number;
+    utilities: number;
+    other: number;
+  }
+
+  const [selectedData, setSelectedData] = useState<ExpenseDataPoint | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const chartData = useMemo(() => {
@@ -133,7 +142,7 @@ export function ExpenseProjectionChart({
     return data;
   }, [currentAge, retirementAge, monthlySpending, medicalInflation, generalInflation, propertyTaxRate, homeValue]);
 
-  const handleClick = (data: any) => {
+  const handleClick = (data: { activePayload?: Array<{ payload?: ExpenseDataPoint }> }) => {
     if (data?.activePayload?.[0]?.payload) {
       setSelectedData(data.activePayload[0].payload);
       setDialogOpen(true);

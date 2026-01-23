@@ -455,7 +455,7 @@ export function RelocationDecisionMatrix({
         <div className="p-4 rounded-lg bg-muted/30 border">
           <h5 className="font-semibold text-sm mb-2 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
-            The "Taxing 8" States for 2026
+            The &quot;Taxing 8&quot; States for 2026
           </h5>
           <p className="text-xs text-muted-foreground mb-2">
             These 8 states still tax Social Security income in 2026 (with various exemption thresholds):
