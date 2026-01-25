@@ -1,6 +1,8 @@
 name: fintech-gemini-saas
 description: >
-  A Gemini-powered assistant for building and debugging Fintech SaaS platforms using Vibe/Lovable API and TypeScript tooling.
+  Gemini-powered assistant for a read-only fintech and retirement analytics SaaS.
+  The system provides data inspection, architecture explanation, and Q&A only.
+  No code execution, file mutation, or shell access is permitted.
 
 tools:
   - name: api-call-lovable
@@ -18,10 +20,15 @@ tools:
     type: function
     file: tools/prompt_logger.js
 
+  - name: supabase-db-tool
+    description: Execute a database query on Supabase.
+    type: openapi
+    file: tools/supabase_tool.yaml
+
 knowledge:
   - file: knowledge/fintech-docs.md
     name: Fintech Gemini Docs
-    description: Internal documentation and architecture for Fintech SaaS system
+    description: Architecture, data flow, and compliance notes
 
 entrypoint:
   default_tool: get-file

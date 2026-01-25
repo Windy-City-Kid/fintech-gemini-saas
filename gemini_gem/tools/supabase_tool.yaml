@@ -1,0 +1,50 @@
+openapi: 3.0.0
+info:
+  title: Supabase Database Tool
+  description: Provides a simple CRUD interface for interacting with the Supabase database.
+  version: 1.0.0
+servers:
+  - url: https://yourdomain.com/api/supabase
+    description: Supabase API
+paths:
+  /query:
+    post:
+      summary: Executes a database query.
+      operationId: query_database
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: The database query to execute.
+                  example: "SELECT * FROM users WHERE id = 1;"
+      responses:
+        '200':
+          description: Query executed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid query or bad request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
